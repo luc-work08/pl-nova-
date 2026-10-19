@@ -218,13 +218,17 @@ textarea{resize:vertical;line-height:1.5}
 .chkRow small{display:block;color:var(--ink-3);font-size:13px;margin-top:2px}
 .notice{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border:1px solid var(--line-2);border-left:3px solid var(--st-review);border-radius:8px;padding:10px 12px;background:var(--field)}
 a.btn{text-decoration:none;color:inherit}
-.emp{display:flex;flex-direction:column;gap:8px}
-.empRow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:start}
-.empNo{font-family:var(--f-display);font-weight:700;font-size:13px;color:var(--ink-3);padding-top:10px;text-align:center}
-.empRow textarea{min-height:58px}
-.empActs{display:flex;flex-direction:column;gap:4px}
-.addEmp{align-self:flex-start}
-@media (max-width:600px){.empRow{grid-template-columns:22px minmax(0,1fr)}.empActs{grid-column:2;flex-direction:row}}
+.emp{display:flex;flex-direction:column;gap:12px}
+.empSection{padding:0 20px 24px}
+.empRow{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:start}
+.empNo{font-family:var(--f-display);font-weight:700;font-size:14px;color:var(--ink-3);padding-top:12px;text-align:center}
+.empRow textarea{min-height:120px;font-size:16px;line-height:1.55;padding:11px 13px}
+.empActs{display:flex;flex-direction:column;gap:6px}
+.addEmp{align-self:flex-start;margin-left:36px}
+.f.grow{flex:1 1 auto}
+#f-text{flex:1 1 auto;min-height:420px}
+@media (max-width:860px){.empSection{padding:0 16px 20px}}
+@media (max-width:600px){.empRow{grid-template-columns:22px minmax(0,1fr)}.empActs{grid-column:2;flex-direction:row}.addEmp{margin-left:0}}
 .urlRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
 .urlRow .note{grid-column:1/-1}
 a.btn.primary{color:var(--on-accent)}
@@ -653,14 +657,14 @@ function buildDetail(p){
           h('label',{class:'f'}, h('span',{class:'lab',text:'Typ'}), field('type', sel(TYPES))),
           h('label',{class:'f'}, h('span',{class:'lab',text:'Kanál'}), field('channel', sel(CHANNELS)))),
         h('label',{class:'f'}, h('span',{class:'lab',text:'Pracovný názov'}, h('span',{class:'hint',text:'len pre nás, nezverejní sa'})), field('title', h('input',{type:'text',maxlength:'120'}))),
-        h('label',{class:'f'}, h('span',{class:'lab',text:'Text príspevku'}), field('text', h('textarea',{spellcheck:'true',lang:'sk'}))),
-        h('div',{class:'f'}, h('span',{class:'lab',text:'Fotka / vizuál'}), h('div',{id:'d-photo'})),
-        h('label',{class:'f'}, h('span',{class:'lab',text:'Poznámka pre kontrolu'}, h('span',{class:'hint',text:'čo má kolega overiť'})), field('notes', h('textarea',{}))),
-        h('div',{class:'f'}, h('span',{class:'lab',text:'Komentáre pre zamestnancov'}, h('span',{class:'hint',text:'3 až 4 komentáre, ktoré zamestnanci pridajú pod príspevok'})), h('div',{class:'emp',id:'d-emp'}))),
+        h('label',{class:'f grow'}, h('span',{class:'lab',text:'Text príspevku'}), field('text', h('textarea',{spellcheck:'true',lang:'sk'}))),
+        h('div',{class:'f'}, h('span',{class:'lab',text:'Fotka / vizuál'}), h('div',{id:'d-photo'}))),
       h('div',{class:'col'},
         h('div',{class:'f'}, h('span',{class:'lab',text:'Náhľad na LinkedIne'}), h('div',{id:'d-preview'})),
         h('div',{class:'prevActs'}, h('button',{class:'btn small',onclick:copyText,text:'Kopírovať text'})),
-        h('div',{class:'f'}, h('span',{class:'lab',text:'Rýchla kontrola'}), h('div',{class:'checks',id:'d-checks'})))),
+        h('div',{class:'f'}, h('span',{class:'lab',text:'Rýchla kontrola'}), h('div',{class:'checks',id:'d-checks'})),
+        h('label',{class:'f'}, h('span',{class:'lab',text:'Poznámka pre kontrolu'}, h('span',{class:'hint',text:'čo má kolega overiť'})), field('notes', h('textarea',{}))))),
+    h('div',{class:'empSection'}, h('div',{class:'f'}, h('span',{class:'lab',text:'Komentáre pre zamestnancov'}, h('span',{class:'hint',text:'3 až 4 komentáre, ktoré zamestnanci pridajú pod príspevok'})), h('div',{class:'emp',id:'d-emp'}))),
     h('div',{class:'thread'}, h('h3',{text:'Komentáre a schvaľovanie'}), h('div',{id:'d-comments'}),
       h('div',{class:'composer'},
         h('textarea',{id:'c-text',placeholder:'Napíš komentár, napr. čo upraviť…'}),
