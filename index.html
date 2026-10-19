@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plánovač príspevkov emst</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap">
+<style>[hidden]{display:none!important}
+/* Layout: list of posts on the left (by date), editor + LinkedIn preview + review thread on the right. Betón palette from the emst posts. */
+:root{
+  --bg:#E9E6E1; --surface:#F6F4F1; --surface-2:#E0DCD6; --field:#FFFFFF;
+  --ink:#2E2C2A; --ink-2:#615C57; --ink-3:#8A847C; --line:rgba(46,44,42,.14); --line-2:rgba(46,44,42,.24);
+  --accent:#C8323A; --accent-hover:#AE2A31; --on-accent:#FFFFFF;
+  --st-draft:#7E786F; --st-review:#A86A12; --st-changes:#C8323A; --st-ok:#2F7A47; --st-pub:#4A4744;
+  --st-draft-bg:rgba(126,120,111,.14); --st-review-bg:rgba(201,138,30,.16); --st-changes-bg:rgba(200,50,58,.12); --st-ok-bg:rgba(47,122,71,.13); --st-pub-bg:rgba(74,71,68,.12);
+  --shadow:0 1px 2px rgba(46,44,42,.06),0 6px 18px rgba(46,44,42,.06);
+  --f-display:"Montserrat",system-ui,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-li:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1C1B1A; --surface:#252422; --surface-2:#302E2B; --field:#1F1E1C;
+  --ink:#EDEAE5; --ink-2:#B3ADA6; --ink-3:#8C867F; --line:rgba(237,234,229,.12); --line-2:rgba(237,234,229,.22);
+  --accent:#E0545B; --accent-hover:#EA6A70; --on-accent:#1C1B1A;
+  --st-draft:#A8A198; --st-review:#E2A84A; --st-changes:#EF6F75; --st-ok:#6CC08A; --st-pub:#C7C1BA;
+  --st-draft-bg:rgba(168,161,152,.16); --st-review-bg:rgba(226,168,74,.16); --st-changes-bg:rgba(239,111,117,.15); --st-ok-bg:rgba(108,192,138,.15); --st-pub-bg:rgba(199,193,186,.12);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#1C1B1A; --surface:#252422; --surface-2:#302E2B; --field:#1F1E1C;
+  --ink:#EDEAE5; --ink-2:#B3ADA6; --ink-3:#8C867F; --line:rgba(237,234,229,.12); --line-2:rgba(237,234,229,.22);
+  --accent:#E0545B; --accent-hover:#EA6A70; --on-accent:#1C1B1A;
+  --st-draft:#A8A198; --st-review:#E2A84A; --st-changes:#EF6F75; --st-ok:#6CC08A; --st-pub:#C7C1BA;
+  --st-draft-bg:rgba(168,161,152,.16); --st-review-bg:rgba(226,168,74,.16); --st-changes-bg:rgba(239,111,117,.15); --st-ok-bg:rgba(108,192,138,.15); --st-pub-bg:rgba(199,193,186,.12);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1320px;margin:0 auto;padding-block:22px 18px}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand .bar{width:44px;height:4px;background:var(--accent);flex-shrink:0}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:800;font-size:clamp(20px,2.4vw,26px);letter-spacing:-.01em;line-height:1.1}
+.brand small{display:block;font-family:var(--f-display);font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:9px 16px;font-family:var(--f-display);font-weight:600;font-size:14px;line-height:1.2;transition:background .15s,border-color .15s}
+.btn:hover:not(:disabled){background:var(--surface-2)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.ok{background:var(--st-ok);border-color:var(--st-ok);color:var(--on-accent)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2)}
+.btn.danger{color:var(--st-changes);border-color:transparent;background:transparent}
+.btn.small{padding:6px 11px;font-size:13px}
+
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;max-width:1320px;margin:0 auto;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+
+/* list */
+.list{position:sticky;top:max(12px,env(safe-area-inset-top,0px));max-height:calc(100vh - 24px);display:flex;flex-direction:column;overflow:hidden}
+.filters{display:flex;gap:4px;padding:10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.filters button{border:0;background:transparent;border-radius:7px;padding:6px 10px;font-family:var(--f-display);font-weight:600;font-size:13px;color:var(--ink-2);display:inline-flex;gap:6px;align-items:center}
+.filters button[aria-pressed="true"]{background:var(--surface-2);color:var(--ink)}
+.count{font-variant-numeric:tabular-nums;font-size:11px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--line);display:inline-flex;align-items:center;justify-content:center}
+.count.hot{background:var(--accent);color:var(--on-accent)}
+.listBody{overflow-y:auto;padding:6px 6px 12px}
+.group{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);padding:14px 10px 6px}
+.item{display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px;width:100%;text-align:left;border:0;background:transparent;border-radius:9px;padding:10px;align-items:start;position:relative}
+.item:hover{background:var(--surface-2)}
+.item[aria-current="true"]{background:var(--surface-2);box-shadow:inset 3px 0 0 var(--accent)}
+.date{display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:8px;padding:5px 0 6px;background:var(--field);font-variant-numeric:tabular-nums}
+.date .wd{font-family:var(--f-display);font-weight:700;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.date .dm{font-family:var(--f-display);font-weight:700;font-size:13px;line-height:1.1;white-space:nowrap}
+.item .ttl{font-weight:600;font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.item .sub{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:5px;font-size:13px;color:var(--ink-2)}
+.waiting{position:absolute;top:12px;right:10px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.listEmpty{padding:28px 18px;color:var(--ink-2);font-size:15px}
+details.pub summary{list-style:none;cursor:pointer}
+details.pub summary::-webkit-details-marker{display:none}
+details.pub summary::after{content:" +";}
+details.pub[open] summary::after{content:" –";}
+
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 9px 2px 8px;font-family:var(--f-display);font-weight:600;font-size:11.5px;letter-spacing:.02em;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-draft{color:var(--st-draft);background:var(--st-draft-bg)}
+.st-review{color:var(--st-review);background:var(--st-review-bg)}
+.st-changes{color:var(--st-changes);background:var(--st-changes-bg)}
+.st-ok{color:var(--st-ok);background:var(--st-ok-bg)}
+.st-pub{color:var(--st-pub);background:var(--st-pub-bg)}
+
+/* detail */
+.detail{min-width:0}
+.empty{padding:48px 28px;text-align:left;max-width:560px}
+.empty h2{font-family:var(--f-display);font-weight:800;font-size:24px;margin:0 0 10px;letter-spacing:-.01em}
+.empty ol{padding-left:20px;color:var(--ink-2);margin:0 0 20px}
+.empty li{margin:6px 0}
+.dHead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dHead .left{display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap}
+.meta{font-size:13px;color:var(--ink-3)}
+.back{display:none}
+.flow{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px;background:var(--surface)}
+.flowRow{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.flowMsg{font-size:15px;color:var(--ink-2);flex:1 1 260px;min-width:0}
+.flowMsg b{color:var(--ink);font-weight:600}
+.flowPanel{border:1px solid var(--line-2);border-radius:10px;padding:14px;background:var(--field);display:flex;flex-direction:column;gap:10px}
+.cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:24px;padding:20px}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.row2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+label.f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.lab{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2)}
+.lab .hint{font-family:var(--f-body);font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-3);font-size:12.5px;margin-left:6px}
+input[type=text],input[type=date],select,textarea{width:100%;min-width:0;border:1px solid var(--line-2);border-radius:8px;background:var(--field);padding:9px 11px;font-size:15px}
+textarea{resize:vertical;line-height:1.5}
+#f-text{min-height:340px;font-size:15.5px}
+#f-notes{min-height:84px}
+.save{font-size:12.5px;color:var(--ink-3);min-height:18px}
+
+.photo{border:1.5px dashed var(--line-2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;background:var(--field)}
+.photo.drag{border-color:var(--accent);background:var(--st-changes-bg)}
+.photo img{max-width:100%;max-height:260px;border-radius:6px;display:block;object-fit:contain;background:var(--surface-2)}
+.photo .acts{display:flex;gap:8px;flex-wrap:wrap}
+.photo p{margin:0;color:var(--ink-2);font-size:14px}
+
+/* preview */
+.li{background:var(--field);border:1px solid var(--line);border-radius:10px;font-family:var(--f-li);overflow:hidden}
+.liHead{display:flex;gap:10px;align-items:center;padding:12px 14px 8px}
+.liLogo{width:44px;height:44px;border-radius:4px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-weight:800;font-size:15px;color:var(--ink);letter-spacing:-.02em;border:1px solid var(--line)}
+.liName{font-weight:600;font-size:14px}
+.liSub{font-size:12px;color:var(--ink-3)}
+.liText{padding:4px 14px 12px;font-size:14px;line-height:1.43;white-space:pre-wrap;overflow-wrap:anywhere}
+.liText .more{border:0;background:none;padding:0;color:var(--ink-3);font-family:var(--f-li);font-size:14px}
+.liText .more:hover{color:var(--accent);text-decoration:underline}
+.liImg img{display:block;width:100%;height:auto}
+.liNoImg{margin:0 14px 14px;border:1px dashed var(--line-2);border-radius:6px;padding:28px 12px;text-align:center;color:var(--ink-3);font-size:13px}
+.liPh{color:var(--ink-3);font-style:italic}
+
+.checks{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:var(--surface)}
+.chk{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.chk:last-child{border-bottom:0}
+.chk .ic{font-family:var(--f-display);font-weight:800;font-size:13px;text-align:center}
+.chk.ok .ic{color:var(--st-ok)} .chk.warn .ic{color:var(--st-changes)} .chk.info .ic{color:var(--st-review)}
+.chk .val{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:13px;white-space:nowrap}
+.chk small{display:block;color:var(--ink-3);font-size:12.5px}
+.prevActs{display:flex;gap:8px;flex-wrap:wrap}
+
+/* comments */
+.thread{padding:4px 20px 22px;border-top:1px solid var(--line)}
+.thread h3{font-family:var(--f-display);font-weight:800;font-size:16px;margin:18px 0 12px}
+.cm{display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.av{width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--surface-2)}
+.cmHead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:13px;color:var(--ink-3)}
+.cmHead b{color:var(--ink);font-weight:600;font-size:14px}
+.cmText{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:2px}
+.noCm{color:var(--ink-3);font-size:14px;padding:6px 0 10px}
+.composer{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.composer textarea{min-height:70px}
+.composer .acts{display:flex;justify-content:flex-end}
+.dFoot{display:flex;justify-content:flex-end;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 20px 16px;border-top:1px solid var(--line)}
+
+.picker{position:relative}
+.hits{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--field);border:1px solid var(--line-2);border-radius:8px;box-shadow:var(--shadow);z-index:5;overflow:hidden}
+.hits button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:transparent;padding:8px 10px;text-align:left}
+.hits button:hover,.hits button:focus{background:var(--surface-2)}
+.hits img{width:24px;height:24px;border-radius:50%}
+.chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:999px;padding:3px 6px 3px 4px;font-size:14px;background:var(--surface)}
+.chip img{width:22px;height:22px;border-radius:50%}
+.chip button{border:0;background:none;color:var(--ink-3);font-size:16px;line-height:1;padding:0 4px}
+.note{font-size:13px;color:var(--ink-3)}
+
+.banner{max-width:1320px;margin:0 auto 14px;padding:10px 14px;border-radius:8px;background:var(--st-changes-bg);color:var(--ink);font-size:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:14px;z-index:20;box-shadow:var(--shadow)}
+
+@media (max-width:1080px){.cols{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:860px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .list{position:static;max-height:none}
+  body.show-detail .list{display:none}
+  body:not(.show-detail) .detail{display:none}
+  .back{display:inline-flex}
+  .row2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .row2 label:first-child{grid-column:1/-1}
+  .cols{padding:16px}
+  .dHead,.flow,.thread,.dFoot{padding-left:16px;padding-right:16px}
+}
+
+.topActs{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.who{display:flex;flex-direction:column;gap:4px}
+.who select{width:180px}
+.sync{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--ink-3);align-self:center}
+.av.ini{display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-weight:700;font-size:12px;color:var(--ink-2)}
+.gate{max-width:760px;margin:24px auto;padding:28px 32px}
+.gate h2{font-family:var(--f-display);font-weight:800;font-size:24px;margin:0 0 12px;letter-spacing:-.01em}
+.gate p{color:var(--ink-2);margin:0 0 14px}
+.gate ol{padding-left:20px;margin:0 0 20px;color:var(--ink-2)}
+.gate li{margin:8px 0}
+.gate code{font-size:13px;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.folder{border-top:1px solid var(--line);padding:10px 14px;font-size:13px;color:var(--ink-3);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.folder b{color:var(--ink-2);font-weight:600}
+.teamView{padding:20px 24px 28px;display:flex;flex-direction:column;gap:14px;max-width:760px}
+.teamView h2{font-family:var(--f-display);font-weight:800;font-size:22px;margin:0}
+.teamView h3{font-family:var(--f-display);font-weight:800;font-size:16px;margin:14px 0 0}
+.teamView p{margin:0;color:var(--ink-2)}
+.teamView .back{display:inline-flex}
+.members{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;background:var(--field)}
+.mrow{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.mrow:last-child{border-bottom:0}
+.members .noCm{padding:12px 14px}
+.addRow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto;gap:8px}
+.chkRow{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--field)}
+.chkRow input{margin-top:4px;width:16px;height:16px;accent-color:var(--accent)}
+.chkRow small{display:block;color:var(--ink-3);font-size:13px;margin-top:2px}
+.notice{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border:1px solid var(--line-2);border-left:3px solid var(--st-review);border-radius:8px;padding:10px 12px;background:var(--field)}
+a.btn{text-decoration:none;color:inherit}
+.urlRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.urlRow .note{grid-column:1/-1}
+a.btn.primary{color:var(--on-accent)}
+@media (max-width:600px){.addRow{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="bar"></span><div><small>emst s.r.o. · LinkedIn a Instagram</small><h1>Plánovač príspevkov</h1></div></div>
+  <div class="topActs" id="topActs" hidden>
+    <label class="who"><span class="lab">Som</span><select id="meSel"></select></label>
+    <button class="btn" id="teamBtn">Tím a upozornenia</button>
+    <button class="btn primary" id="newPost">+ Nový príspevok</button>
+    <div class="sync"><span id="syncState">Pripájam…</span><button class="btn ghost small" id="syncNow" title="Načítať zmeny od kolegov">Obnoviť</button></div>
+  </div>
+</header>
+<div id="banner" class="banner" hidden></div>
+
+<section class="panel gate" id="gate" hidden></section>
+
+<div class="layout" id="layout" hidden>
+  <aside class="panel list" aria-label="Príspevky">
+    <div class="filters" role="group" aria-label="Filter">
+      <button data-f="all" aria-pressed="true">Všetky <span class="count" id="c-all">0</span></button>
+      <button data-f="review" aria-pressed="false">Na kontrole <span class="count" id="c-review">0</span></button>
+      <button data-f="mine" aria-pressed="false">Čaká na mňa <span class="count" id="c-mine">0</span></button>
+    </div>
+    <div class="listBody" id="listBody"></div>
+    <div class="folder" id="folderInfo"></div>
+  </aside>
+  <main class="panel detail" id="detail"></main>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<input type="file" id="fileIn" accept="image/jpeg,image/png,image/webp" hidden>
+<datalist id="people"></datalist>
+
+<script type="application/json" id="seedData">[]</script>
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+function h(tag, props, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(props||{})){
+    if (v==null || v===false) continue;
+    if (k==='class') el.className = v;
+    else if (k==='text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v===true ? '' : v);
+  }
+  for (const kid of kids.flat()){
+    if (kid==null || kid===false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+
+const STATUS = {
+  draft:{label:'Koncept',cls:'st-draft'}, review:{label:'Na kontrole',cls:'st-review'},
+  changes:{label:'Na úpravu',cls:'st-changes'}, approved:{label:'Schválené',cls:'st-ok'}, published:{label:'Publikované',cls:'st-pub'}
+};
+const KIND = {sent:'poslal/a na kontrolu', approve:'schválil/a', changes:'vrátil/a na úpravu', published:'označil/a ako publikované', comment:''};
+const KIND_CLS = {sent:'st-review', approve:'st-ok', changes:'st-changes', published:'st-pub'};
+const TYPES = ['Technický','Referencia','Servis','Udalosť','Firma'];
+const CHANNELS = ['LinkedIn','Instagram','LinkedIn + Instagram'];
+const FIELDS = ['date','type','channel','title','text','notes'];
+const WEB = (location.protocol==='https:' || location.hostname==='localhost') && !/sharepoint\.com$/i.test(location.hostname);
+const DEFAULT_URL = '';
+
+const S = { dirs:null, root:null, posts:new Map(), comments:new Map(), seen:new Map(), pending:new Map(), timers:new Map(),
+  photoUrls:new Map(), selected:null, filter:'all', builtFor:null, flowKey:null, ui:{}, syncing:false, lastSync:0,
+  team:{members:[], autoNotify:false, plannerUrl:DEFAULT_URL}, meName:'', view:null };
+
+/* ---------- small helpers ---------- */
+function uid(){ return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function ls(key, val){ try { if (val===undefined) return localStorage.getItem(key); localStorage.setItem(key, val); } catch(e){ return null; } }
+const me = () => S.meName || '';
+const member = name => S.team.members.find(m => same(m.name, name)) || null;
+const same = (a,b) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+const pill = st => h('span',{class:'pill '+(STATUS[st]||STATUS.draft).cls, text:(STATUS[st]||STATUS.draft).label});
+const pDate = d => d ? new Date(d+'T12:00:00') : null;
+const fmtWd = d => d ? d.toLocaleDateString('sk-SK',{weekday:'short'}).replace('.','') : '–';
+const fmtDm = d => d ? d.getDate()+'. '+(d.getMonth()+1)+'.' : '';
+const fmtLong = d => d ? d.toLocaleDateString('sk-SK',{weekday:'long',day:'numeric',month:'numeric',year:'numeric'}) : 'bez dátumu';
+const hm = ms => { const d=new Date(ms); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+const fmtTime = ms => { if(!ms) return ''; const d=new Date(ms); return d.getDate()+'. '+(d.getMonth()+1)+'. '+hm(ms); };
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(S.tt); S.tt=setTimeout(()=>t.hidden=true,2800); }
+function setSync(msg){ $('#syncState').textContent = msg; }
+function needName(){
+  if (me()) return false;
+  if (!S.team.members.length){ toast('Najprv pridaj členov tímu v časti Tím a upozornenia.'); openTeam(); }
+  else { toast('Najprv hore vyber, kto si.'); $('#meSel').focus(); }
+  return true;
+}
+function isMine(p){ const m=me(); return !!m && ((p.status==='review' && same(p.reviewer,m)) || (p.status==='changes' && same(p.createdBy,m))); }
+function nextTuesday(){
+  const d=new Date(); d.setHours(12,0,0,0);
+  const add=((2-d.getDay())+7)%7||7; d.setDate(d.getDate()+add);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function refreshPeople(){
+  const names=new Set();
+  for (const p of S.posts.values()) [p.createdBy,p.updatedBy,p.reviewer].forEach(n=>n&&names.add(n));
+  for (const list of S.comments.values()) list.forEach(c=>c.author&&names.add(c.author));
+  $('#people').replaceChildren(...[...names].sort().map(n=>h('option',{value:n})));
+}
+
+/* ---------- IndexedDB: remember the folder ---------- */
+function idb(){ return new Promise((res,rej)=>{ const q=indexedDB.open('emst-planovac',1); q.onupgradeneeded=()=>q.result.createObjectStore('kv'); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function idbGet(k){ try{ const db=await idb(); return await new Promise(r=>{ const q=db.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null); }); }catch(e){ return null; } }
+async function idbSet(k,v){ try{ const db=await idb(); await new Promise(r=>{ const t=db.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=r; t.onerror=r; }); }catch(e){} }
+
+/* ---------- connecting to the shared folder ---------- */
+function gate(kind, handle){
+  $('#layout').hidden=true; $('#topActs').hidden=true;
+  const g=$('#gate'); g.hidden=false;
+  const steps = WEB ? h('ol',{},
+    h('li',{},'Priečinok ',h('b',{text:'plánovač'}),' na OneDrive alebo v Teams musí byť synchronizovaný do tvojho počítača (',h('b',{text:'Pridať odkaz do priečinka Môj OneDrive'}),' alebo ',h('b',{text:'Synchronizovať'}),').'),
+    h('li',{},'Plánovač otváraj vždy na tejto adrese v prehliadači ',h('b',{text:'Microsoft Edge'}),' alebo ',h('b',{text:'Chrome'}),'. Adresa je pre všetkých rovnaká.'),
+    h('li',{},'Klikni na ',h('b',{text:'Pripojiť priečinok'}),' a vyber synchronizovaný priečinok ',h('b',{text:'plánovač'}),'. Plánovač v ňom nájde podpriečinok ',h('code',{text:'planovac-data'}),' so všetkými príspevkami.'))
+  : h('ol',{},
+    h('li',{},'Vytvor na OneDrive priečinok, napr. ',h('b',{text:'Plánovač príspevkov'}),', a daj doň tento súbor.'),
+    h('li',{},'Priečinok zdieľaj s kolegom. Kolega si ho pridá cez ',h('b',{text:'Pridať odkaz do priečinka Môj OneDrive'}),', aby sa mu synchronizoval do počítača.'),
+    h('li',{},'Obaja otvoríte tento súbor z Prieskumníka (OneDrive v počítači) v prehliadači ',h('b',{text:'Microsoft Edge'}),' alebo ',h('b',{text:'Chrome'}),'.'),
+    h('li',{},'Klikni na ',h('b',{text:'Pripojiť priečinok'}),' a vyber ten istý zdieľaný priečinok. Plánovač si v ňom vytvorí podpriečinok ',h('code',{text:'planovac-data'}),'.'));
+  if (kind==='browser'){
+    g.replaceChildren(h('h2',{text:'Otvor plánovač v Edge alebo Chrome'}),
+      h('p',{text:'Tento prehliadač nevie pracovať s priečinkom na disku. Otvor súbor v Microsoft Edge alebo Google Chrome (pravý klik na súbor → Otvoriť v programe).'}));
+    return;
+  }
+  if (!WEB && location.protocol!=='file:'){
+    g.replaceChildren(h('h2',{text:'Otvor súbor z počítača'}),
+      h('p',{text:'Plánovač nefunguje cez web OneDrive. Otvor ho zo synchronizovaného priečinka OneDrive v Prieskumníkovi (dvojklik na súbor).'}), steps);
+    return;
+  }
+  const pick=h('button',{class:'btn primary',onclick:async()=>{
+    try{ const d=await window.showDirectoryPicker({id:'emst-planovac',mode:'readwrite'}); await connect(d); }
+    catch(e){ if(e && e.name!=='AbortError') toast('Priečinok sa nepodarilo pripojiť.'); }
+  },text: kind==='resume' ? 'Vybrať iný priečinok' : 'Pripojiť priečinok'});
+  const kids=[h('h2',{text: kind==='resume' ? 'Pokračovať v plánovači' : 'Nastavenie (raz na každom počítači)'})];
+  if (kind==='resume'){
+    kids.push(h('p',{},'Naposledy si pracoval/a s priečinkom ',h('b',{text:handle.name}),'. Prehliadač potrebuje tvoje potvrdenie, aby ho mohol znova otvoriť.'),
+      h('div',{class:'flowRow'}, h('button',{class:'btn primary',onclick:async()=>{
+        try{ if(await handle.requestPermission({mode:'readwrite'})==='granted') await connect(handle); else toast('Bez povolenia sa priečinok nedá otvoriť.'); }
+        catch(e){ toast('Priečinok sa nepodarilo otvoriť. Vyber ho znova.'); }
+      },text:'Pokračovať'}), pick));
+    pick.className='btn ghost';
+  } else {
+    kids.push(h('p',{text:'Plánovač ukladá príspevky, komentáre a fotky do zdieľaného priečinka na OneDrive. Kolega vidí zmeny po synchronizácii, zvyčajne do minúty.'}), steps, h('div',{class:'flowRow'}, pick));
+  }
+  g.replaceChildren(...kids);
+}
+async function connect(handle){
+  S.root=handle;
+  const data=await handle.getDirectoryHandle('planovac-data',{create:true});
+  S.dirs={ data, posts: await data.getDirectoryHandle('posts',{create:true}), comments: await data.getDirectoryHandle('comments',{create:true}),
+    photos: await data.getDirectoryHandle('photos',{create:true}), notifications: await data.getDirectoryHandle('notifications',{create:true}) };
+  await idbSet('root', handle);
+  await loadTeam(true);
+  cleanNotifications();
+  $('#gate').hidden=true; $('#layout').hidden=false; $('#topActs').hidden=false;
+  $('#folderInfo').replaceChildren('Priečinok: ', h('b',{text:handle.name}), ' ', h('button',{class:'btn ghost small',onclick:()=>gate('first'),text:'Zmeniť'}));
+  await syncAll();
+  if (S.posts.size===0) await seed();
+  renderList(); renderDetail();
+  if (!S.team.members.length) openTeam(); else { await rememberMyUrl(); if (!openFromHash()) focusWaiting(); }
+  clearInterval(S.poll);
+  S.poll=setInterval(()=>{ if(document.visibilityState==='visible') syncAll(); }, 12000);
+}
+async function seed(){
+  let seedPosts=[]; try{ seedPosts=JSON.parse($('#seedData').textContent)||[]; }catch(e){}
+  for (const p of seedPosts){ S.posts.set(p.id, p); S.pending.set(p.id, new Set(Object.keys(p))); await flush(p.id); }
+  if (seedPosts.length) toast('Do priečinka som pridal '+seedPosts.length+' naplánované príspevky.');
+}
+
+/* ---------- team (profiles) ---------- */
+async function loadTeam(force){
+  try{
+    const fh=await S.dirs.data.getFileHandle('team.json',{create:false});
+    const f=await fh.getFile(); const key=f.lastModified+':'+f.size;
+    if (!force && S.seen.get('team')===key) return false;
+    const t=JSON.parse(await f.text()); S.seen.set('team',key);
+    if (t && Array.isArray(t.members)) S.team={members:t.members.filter(m=>m&&m.name), autoNotify:!!t.autoNotify, plannerUrl:typeof t.plannerUrl==='string'?t.plannerUrl:DEFAULT_URL};
+  }catch(e){ if (!force) return false; }
+  renderMeSel(); if (S.view==='team') renderTeamView();
+  return true;
+}
+async function saveTeam(mutate){
+  try{
+    const fh=await S.dirs.data.getFileHandle('team.json',{create:true});
+    let cur={members:[], autoNotify:S.team.autoNotify};
+    try{ const f=await fh.getFile(); if (f.size){ const t=JSON.parse(await f.text()); if (t && Array.isArray(t.members)) cur=t; } }catch(e){}
+    mutate(cur);
+    const w=await fh.createWritable(); await w.write(JSON.stringify(cur,null,1)); await w.close();
+    const f2=await fh.getFile(); S.seen.set('team', f2.lastModified+':'+f2.size);
+    S.team={members:cur.members, autoNotify:!!cur.autoNotify, plannerUrl:typeof cur.plannerUrl==='string'?cur.plannerUrl:DEFAULT_URL};
+    renderMeSel(); renderTeamView(); refreshPeople();
+  }catch(e){ toast('Tím sa nepodarilo uložiť do priečinka.'); }
+}
+function renderMeSel(){
+  const sel=$('#meSel'); const stored=ls('emst-planovac-meno')||'';
+  const names=S.team.members.map(m=>m.name);
+  sel.replaceChildren(h('option',{value:'',text: names.length ? '— vyber sa —' : '— najprv pridaj tím —'}), ...names.map(n=>h('option',{value:n,text:n})));
+  const hit=names.find(n=>same(n,stored)) || '';
+  sel.value=hit; S.meName=hit;
+}
+function openTeam(){ S.view='team'; S.selected=null; S.builtFor=null; document.body.classList.add('show-detail'); renderList(); renderTeamView(); }
+function renderTeamView(){
+  if (S.view!=='team') return;
+  const nameIn=h('input',{type:'text',id:'tm-name',placeholder:'Meno, napr. Dávid'});
+  const mailIn=h('input',{type:'text',id:'tm-mail',placeholder:'e-mail, napr. david@emst.sk',inputmode:'email'});
+  const err=h('span',{class:'note'});
+  const add=()=>{
+    const n=nameIn.value.trim(), m=mailIn.value.trim();
+    if (!n){ err.textContent='Napíš meno.'; nameIn.focus(); return; }
+    if (m && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)){ err.textContent='E-mail nevyzerá správne.'; mailIn.focus(); return; }
+    if (member(n)){ err.textContent='Taký člen už v tíme je.'; return; }
+    saveTeam(t=>{ t.members=(t.members||[]).filter(x=>!same(x.name,n)); t.members.push({name:n, email:m}); });
+  };
+  mailIn.addEventListener('keydown',e=>{ if(e.key==='Enter') add(); });
+  const auto=h('input',{type:'checkbox',id:'tm-auto'}); auto.checked=!!S.team.autoNotify;
+  auto.addEventListener('change',()=>saveTeam(t=>{ t.autoNotify=auto.checked; }));
+  $('#detail').replaceChildren(h('div',{class:'teamView'},
+    h('div',{class:'flowRow'}, h('button',{class:'btn ghost small back',onclick:()=>select(null),text:'← Zoznam'}), h('h2',{text:'Tím a upozornenia'})),
+    h('p',{class:'note',text:'Členov tímu vidia všetci, čo majú priečinok. Každý si potom hore vyberie, kto je. E-mail slúži na upozornenia v Outlooku a v Teams.'}),
+    h('div',{class:'members'}, S.team.members.length ? S.team.members.map(m=>h('div',{class:'mrow'},
+        h('span',{class:'av ini',text:initials(m.name)}), h('div',{}, h('b',{text:m.name}), h('div',{class:'note',text:WEB ? (m.email||'bez e-mailu') : (m.email||'bez e-mailu')+' · '+(m.fileUrl?'osobný odkaz uložený':'osobný odkaz chýba (nech si raz otvorí plánovač a vyberie svoje meno)')})),
+        h('button',{class:'btn small danger',onclick:()=>saveTeam(t=>{ t.members=(t.members||[]).filter(x=>!same(x.name,m.name)); }),text:'Odstrániť'})))
+      : h('div',{class:'noCm',text:'Tím je zatiaľ prázdny. Pridaj seba a kolegov.'})),
+    h('div',{class:'addRow'}, nameIn, mailIn, h('button',{class:'btn primary',onclick:add,text:'Pridať'})), err,
+    h('h3',{text:'Odkaz na plánovač'}),
+    h('p',{text:'Tento odkaz sa pridá do každej správy v Teams a v e-maile.'}),
+    (()=>{ const u=h('input',{type:'text',id:'tm-url',value:S.team.plannerUrl||'',placeholder:'https://…sharepoint.com/…'});
+      const st=h('span',{class:'note'});
+      return h('div',{class:'urlRow'}, u, h('button',{class:'btn',onclick:()=>{ const v=u.value.trim(); if(v && !/^https:\/\//.test(v)){ st.textContent='Odkaz musí začínať https://'; return; } saveTeam(t=>{ t.plannerUrl=v; }); toast('Odkaz uložený'); },text:'Uložiť odkaz'}), st); })(),
+    h('h3',{text:'Upozornenia'}),
+    h('p',{text:'Keď niekto pošle príspevok na kontrolu, vráti ho alebo schváli, plánovač ponúkne tlačidlá Napísať v Teams a Poslať e-mail s pripravenou správou. Stačí ju odoslať.'}),
+    h('label',{class:'chkRow'}, auto, h('span',{}, h('b',{text:'Automatické upozornenia cez Power Automate'}), h('small',{text:'Zapni, keď je nastavený tok, ktorý číta priečinok planovac-data/notifications. Správy potom chodia samé.'})))
+  ));
+}
+
+async function writeNotification(n){
+  try{
+    const name=Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.json';
+    const fh=await S.dirs.notifications.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(JSON.stringify(n,null,1)); await w.close();
+  }catch(e){}
+}
+async function cleanNotifications(){
+  try{
+    const old=Date.now()-30*864e5, gone=[];
+    for await (const [name] of S.dirs.notifications.entries()){ const t=parseInt(name,10); if (t && t<old) gone.push(name); }
+    for (const name of gone){ try{ await S.dirs.notifications.removeEntry(name); }catch(e){} }
+  }catch(e){}
+}
+
+/* ---------- reading changes from the folder ---------- */
+async function syncAll(){
+  if (!S.dirs || S.syncing) return; S.syncing=true;
+  let changed=false;
+  try{
+    await loadTeam(false);
+    const found=new Set();
+    for await (const [name, fh] of S.dirs.posts.entries()){
+      if (fh.kind!=='file' || !name.endsWith('.json')) continue;
+      const id=name.slice(0,-5); found.add(id);
+      const f=await fh.getFile(); const key=f.lastModified+':'+f.size;
+      if (S.seen.get('p:'+id)===key) continue;
+      let p; try{ p=JSON.parse(await f.text()); }catch(e){ continue; }   // file still syncing, try next round
+      S.seen.set('p:'+id, key);
+      if (!p || p.id!==id) continue;                                   // OneDrive conflict copies are ignored
+      const pend=S.pending.get(id), local=S.posts.get(id);
+      if (pend && pend.size && local) for (const k of pend) p[k]=local[k];
+      S.posts.set(id, p); changed=true;
+    }
+    for (const id of [...S.posts.keys()]){
+      if (!found.has(id) && !(S.pending.get(id)||new Set()).size && !S.timers.has(id)){ S.posts.delete(id); changed=true; }
+    }
+    for await (const [pid, dh] of S.dirs.comments.entries()){
+      if (dh.kind!=='directory') continue;
+      for await (const [cn, ch] of dh.entries()){
+        const key='c:'+pid+'/'+cn; if (ch.kind!=='file' || S.seen.has(key)) continue;
+        let c; try{ c=JSON.parse(await (await ch.getFile()).text()); }catch(e){ continue; }
+        S.seen.set(key,1);
+        const list=S.comments.get(pid)||[]; list.push(c); list.sort((a,b)=>a.at-b.at); S.comments.set(pid,list); changed=true;
+        if (pid===S.builtFor) S.cmDirty=true;
+      }
+    }
+    S.lastSync=Date.now(); setSync('Synchronizované '+hm(S.lastSync));
+  }catch(e){ setSync('Priečinok nie je dostupný'); }
+  finally{ S.syncing=false; }
+  if (changed){ refreshPeople(); renderList(); renderDetail(); if (S.cmDirty){ S.cmDirty=false; drawComments(); } }
+}
+
+/* ---------- writing ---------- */
+function setLocal(id, fields, delay){
+  const p=S.posts.get(id); if(!p) return;
+  Object.assign(p, fields, {updatedAt:Date.now(), updatedBy:me()||p.updatedBy||null});
+  const set=S.pending.get(id)||new Set(); Object.keys(fields).concat(['updatedAt','updatedBy']).forEach(k=>set.add(k)); S.pending.set(id,set);
+  clearTimeout(S.timers.get(id));
+  S.timers.set(id, setTimeout(()=>flush(id), delay==null?800:delay));
+  setSync('Ukladám…');
+}
+async function flush(id){
+  clearTimeout(S.timers.get(id)); S.timers.delete(id);
+  const fields=S.pending.get(id); if (!fields || !fields.size) return;
+  S.pending.set(id, new Set());
+  const local=S.posts.get(id); if (!local) return;
+  try{
+    const fh=await S.dirs.posts.getFileHandle(id+'.json',{create:true});
+    let base=null;
+    try{ const f=await fh.getFile(); if (f.size && S.seen.get('p:'+id)!==f.lastModified+':'+f.size){ const b=JSON.parse(await f.text()); if (b && b.id===id) base=b; } }catch(e){}
+    const out=base ? Object.assign({}, base) : Object.assign({}, local);
+    if (base) for (const k of fields) out[k]=local[k];
+    const w=await fh.createWritable(); await w.write(JSON.stringify(out,null,1)); await w.close();
+    const f2=await fh.getFile(); S.seen.set('p:'+id, f2.lastModified+':'+f2.size);
+    const now=S.posts.get(id)||out, pend=S.pending.get(id)||new Set();
+    const merged=Object.assign({}, out); for (const k of pend) merged[k]=now[k];
+    S.posts.set(id, merged);
+    setSync('Uložené '+hm(Date.now()));
+    if (base){ renderList(); renderDetail(); }
+  }catch(e){
+    const set=S.pending.get(id)||new Set(); fields.forEach(k=>set.add(k)); S.pending.set(id,set);
+    setSync('Neuložené, skúšam znova…');
+    S.timers.set(id, setTimeout(()=>flush(id), 5000));
+  }
+}
+async function writeComment(pid, c){
+  try{
+    const dir=await S.dirs.comments.getDirectoryHandle(pid,{create:true});
+    const name=c.at+'-'+Math.random().toString(36).slice(2,8)+'.json';
+    const fh=await dir.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(JSON.stringify(c,null,1)); await w.close();
+    S.seen.set('c:'+pid+'/'+name,1);
+    const list=S.comments.get(pid)||[]; list.push(c); list.sort((a,b)=>a.at-b.at); S.comments.set(pid,list);
+    refreshPeople(); if (pid===S.builtFor) drawComments();
+    return true;
+  }catch(e){ toast('Komentár sa nepodarilo uložiť do priečinka.'); return false; }
+}
+
+/* ---------- list ---------- */
+function renderList(){
+  const all=[...S.posts.values()];
+  $('#c-all').textContent=all.length;
+  $('#c-review').textContent=all.filter(p=>p.status==='review').length;
+  const mine=all.filter(isMine).length; const cm=$('#c-mine'); cm.textContent=mine; cm.classList.toggle('hot',mine>0);
+  let rows=all;
+  if (S.filter==='review') rows=all.filter(p=>p.status==='review');
+  if (S.filter==='mine') rows=all.filter(isMine);
+  const body=$('#listBody'); body.replaceChildren();
+  if (!rows.length){
+    body.append(h('div',{class:'listEmpty',text: S.filter==='all' ? 'Zatiaľ tu nie sú žiadne príspevky. Začni tlačidlom Nový príspevok.' : S.filter==='mine' ? (me() ? 'Nič na teba nečaká.' : 'Zadaj hore svoje meno, aby sme vedeli, čo čaká na teba.') : 'Žiadny príspevok nie je na kontrole.'}));
+    return;
+  }
+  const upcoming=rows.filter(p=>p.status!=='published').sort((a,b)=>(a.date||'9').localeCompare(b.date||'9'));
+  const pub=rows.filter(p=>p.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  let lastM=null;
+  for (const p of upcoming){
+    const d=pDate(p.date); const m=d ? d.toLocaleDateString('sk-SK',{month:'long',year:'numeric'}) : 'Bez dátumu';
+    if (m!==lastM){ body.append(h('div',{class:'group',text:m})); lastM=m; }
+    body.append(item(p));
+  }
+  if (pub.length){
+    const det=h('details',{class:'pub'}, h('summary',{class:'group',text:'Publikované ('+pub.length+')'}));
+    if (S.ui.pubOpen) det.open=true;
+    det.addEventListener('toggle',()=>S.ui.pubOpen=det.open);
+    pub.forEach(p=>det.append(item(p)));
+    body.append(det);
+  }
+}
+function item(p){
+  const d=pDate(p.date);
+  return h('button',{class:'item','aria-current':String(p.id===S.selected), onclick:()=>select(p.id)},
+    h('span',{class:'date'}, h('span',{class:'wd',text:fmtWd(d)}), h('span',{class:'dm',text:fmtDm(d)||'—'})),
+    h('span',{}, h('div',{class:'ttl',text:p.title||'Bez názvu'}),
+      h('div',{class:'sub'}, pill(p.status), h('span',{text:[p.type,p.channel].filter(Boolean).join(' · ')}))),
+    isMine(p) ? h('span',{class:'waiting',title:'Čaká na teba'}) : null);
+}
+function select(id){
+  S.selected=id; S.view=null; S.builtFor=null; S.ui={pubOpen:S.ui.pubOpen};
+  document.body.classList.toggle('show-detail',!!id);
+  renderList(); renderDetail();
+  if (id && window.matchMedia('(max-width:860px)').matches) window.scrollTo({top:0});
+}
+
+/* ---------- detail ---------- */
+function emptyView(){
+  return h('div',{class:'empty'}, h('h2',{text:'Ako to funguje'}),
+    h('ol',{}, h('li',{text:'Hore zadaj svoje meno.'}), h('li',{text:'Vytvor príspevok: dátum, text a fotka. Napravo vidíš náhľad na LinkedIne a rýchlu kontrolu textu.'}),
+      h('li',{text:'Klikni na Poslať na kontrolu a napíš meno kolegu.'}), h('li',{text:'Kolega príspevok uvidí vo filtri Čaká na mňa, schváli ho alebo vráti s komentárom.'})),
+    h('p',{class:'note',text:'Všetko sa ukladá samo do zdieľaného priečinka. Nič netreba posielať.'}));
+}
+function renderDetail(){
+  if (S.view==='team') return;
+  const p=S.posts.get(S.selected);
+  if (!p){
+    S.builtFor=null;
+    if (S.selected && !S.timers.has(S.selected)){ S.selected=null; document.body.classList.remove('show-detail'); }
+    if (!$('#detail .empty')) $('#detail').replaceChildren(emptyView());
+    return;
+  }
+  if (S.builtFor!==p.id){ buildDetail(p); S.builtFor=p.id; drawComments(); }
+  patchDetail(p);
+}
+function field(name, el){
+  el.id='f-'+name;
+  const ev = el.tagName==='SELECT' || el.type==='date' ? 'change' : 'input';
+  el.addEventListener(ev, ()=>{
+    setLocal(S.builtFor, {[name]:el.value}, ev==='change'?0:800);
+    if (['title','date','type','channel'].includes(name)) renderList();
+    if (name==='text'||name==='date'||name==='type') updatePreview();
+  });
+  el.addEventListener('blur', ()=>{ if (S.timers.has(S.builtFor)) flush(S.builtFor); });
+  return el;
+}
+function buildDetail(p){
+  const sel=opts=>h('select',{}, opts.map(o=>h('option',{value:o,text:o})));
+  $('#detail').replaceChildren(
+    h('div',{class:'dHead'},
+      h('div',{class:'left'},
+        h('button',{class:'btn ghost small back',onclick:()=>select(null),text:'← Zoznam'}),
+        h('span',{id:'d-pill'}), h('span',{class:'meta',id:'d-meta'}))),
+    h('div',{class:'flow',id:'d-flow'}),
+    h('div',{class:'cols'},
+      h('div',{class:'col'},
+        h('div',{class:'row2'},
+          h('label',{class:'f'}, h('span',{class:'lab',text:'Dátum'}), field('date', h('input',{type:'date'}))),
+          h('label',{class:'f'}, h('span',{class:'lab',text:'Typ'}), field('type', sel(TYPES))),
+          h('label',{class:'f'}, h('span',{class:'lab',text:'Kanál'}), field('channel', sel(CHANNELS)))),
+        h('label',{class:'f'}, h('span',{class:'lab',text:'Pracovný názov'}, h('span',{class:'hint',text:'len pre nás, nezverejní sa'})), field('title', h('input',{type:'text',maxlength:'120'}))),
+        h('label',{class:'f'}, h('span',{class:'lab',text:'Text príspevku'}), field('text', h('textarea',{spellcheck:'true',lang:'sk'}))),
+        h('div',{class:'f'}, h('span',{class:'lab',text:'Fotka / vizuál'}), h('div',{id:'d-photo'})),
+        h('label',{class:'f'}, h('span',{class:'lab',text:'Poznámka pre kontrolu'}, h('span',{class:'hint',text:'čo má kolega overiť'})), field('notes', h('textarea',{})))),
+      h('div',{class:'col'},
+        h('div',{class:'f'}, h('span',{class:'lab',text:'Náhľad na LinkedIne'}), h('div',{id:'d-preview'})),
+        h('div',{class:'prevActs'}, h('button',{class:'btn small',onclick:copyText,text:'Kopírovať text'})),
+        h('div',{class:'f'}, h('span',{class:'lab',text:'Rýchla kontrola'}), h('div',{class:'checks',id:'d-checks'})))),
+    h('div',{class:'thread'}, h('h3',{text:'Komentáre a schvaľovanie'}), h('div',{id:'d-comments'}),
+      h('div',{class:'composer'},
+        h('textarea',{id:'c-text',placeholder:'Napíš komentár, napr. čo upraviť…'}),
+        h('div',{class:'acts'}, h('button',{class:'btn',onclick:addComment,text:'Pridať komentár'})))),
+    h('div',{class:'dFoot',id:'d-foot'}));
+  S.flowKey=null; S.photoKey=null;
+}
+function patchDetail(p){
+  const pend=S.pending.get(p.id)||new Set();
+  for (const name of FIELDS){
+    const el=$('#f-'+name); if(!el) continue;
+    if (document.activeElement===el || pend.has(name)) continue;
+    const v=p[name]==null?'':String(p[name]);
+    if (el.tagName==='SELECT' && v && ![...el.options].some(o=>o.value===v)) el.append(h('option',{value:v,text:v}));
+    if (el.value!==v) el.value=v;
+  }
+  $('#d-pill').replaceChildren(pill(p.status));
+  const parts=[]; if (p.createdBy) parts.push('Vytvoril/a '+p.createdBy);
+  if (p.updatedAt) parts.push('upravené '+fmtTime(p.updatedAt)+(p.updatedBy?' ('+p.updatedBy+')':''));
+  $('#d-meta').textContent=parts.join(' · ');
+  renderFlow(p); renderPhoto(p); updatePreview(); renderFoot(p);
+}
+
+/* ---------- workflow ---------- */
+async function setStatus(status, kind, text, to, extra){
+  if (needName()) return;
+  const id=S.builtFor; if(!id) return;
+  setLocal(id, Object.assign({status}, extra||{}), 0);
+  await flush(id);
+  if (kind) await writeComment(id, {kind, text:text||'', author:me(), to:to||null, at:Date.now()});
+  S.ui.send=false; S.ui.decide=null; S.ui.notice=null;
+  const p=S.posts.get(id);
+  const target = kind==='sent' ? to : (kind==='changes'||kind==='approve') ? (p && p.createdBy) : null;
+  if (p && target && !same(target, me())) S.ui.notice=await buildNotice(kind, p, target, text);
+  S.flowKey=null; refreshPeople(); renderList(); renderDetail();
+}
+async function buildNotice(kind, p, toName, text){
+  const m=member(toName), from=member(me());
+  const title=p.title||'Bez názvu', when=fmtLong(pDate(p.date));
+  const subject = kind==='sent' ? 'Na kontrolu: '+title : kind==='changes' ? 'Na úpravu: '+title : 'Schválené: '+title;
+  const lead = kind==='sent' ? me()+' ti poslal/a na kontrolu príspevok „'+title+'“ ('+when+').'
+    : kind==='changes' ? me()+' vrátil/a príspevok „'+title+'“ ('+when+') na úpravu.'
+    : me()+' schválil/a príspevok „'+title+'“ ('+when+').';
+  const link = WEB ? location.href.split('#')[0]+'#p='+p.id : (m && m.fileUrl ? m.fileUrl+'#p='+p.id : '');
+  const body = lead + (text ? '\n'+(kind==='changes'?'Komentár: ':'Správa: ')+text : '')
+    + (link ? (WEB ? '\n\nOtvoriť príspevok:\n' : '\n\nOtvoriť príspevok (ak sa odkaz neotvorí kliknutím, skopíruj ho do Chrome alebo Edge):\n')+link
+            : '\nOtvor plánovač príspevkov, príspevok sa ti otvorí sám (nájdeš ho aj pod „Čaká na mňa“).' + (S.team.plannerUrl ? '\nPlánovač: '+S.team.plannerUrl : ''));
+  const n={type:kind, at:new Date().toISOString(), toName, toEmail:(m&&m.email)||'', fromName:me(), fromEmail:(from&&from.email)||'', postTitle:title, postDate:p.date||'', subject, message:body};
+  await writeNotification(n);
+  return n;
+}
+function noticeBox(n){
+  const box=h('div',{class:'notice'});
+  const auto=S.team.autoNotify;
+  box.append(h('div',{class:'flowMsg'}, auto ? ['Upozornenie pre ',h('b',{text:n.toName}),' odošle Power Automate automaticky.'] : ['Daj vedieť ',h('b',{text:n.toName}),':']));
+  if (n.toEmail){
+    const teams='https://teams.microsoft.com/l/chat/0/0?users='+encodeURIComponent(n.toEmail)+'&message='+encodeURIComponent(n.message);
+    const mail='mailto:'+n.toEmail+'?subject='+encodeURIComponent(n.subject)+'&body='+encodeURIComponent(n.message);
+    box.append(h('a',{class:'btn '+(auto?'small':'primary small'),href:teams,target:'_blank',rel:'noopener',text:'Napísať v Teams'}),
+               h('a',{class:'btn small',href:mail,text:'Poslať e-mail'}));
+  } else box.append(h('span',{class:'note',text:n.toName+' nemá v tíme e-mail. Doplň ho v časti Tím a upozornenia.'}));
+  box.append(h('button',{class:'btn ghost small',onclick:()=>{S.ui.notice=null;S.flowKey=null;renderFlow(S.posts.get(S.builtFor));},text:'Zavrieť'}));
+  return box;
+}
+function renderFlow(p){
+  const key=[p.status,p.reviewer,S.ui.send,S.ui.decide,me(),S.ui.notice?S.ui.notice.at:'',S.team.members.length].join('|');
+  if (key===S.flowKey) return; S.flowKey=key;
+  const box=$('#d-flow'); if(!box) return;
+  const row=h('div',{class:'flowRow'}); box.replaceChildren(row);
+  if (S.ui.notice) box.append(noticeBox(S.ui.notice));
+  const redraw=()=>{ S.flowKey=null; renderFlow(S.posts.get(S.builtFor)); };
+  if (p.status==='draft' || p.status==='changes'){
+    row.append(h('div',{class:'flowMsg'}, p.status==='changes'
+      ? [h('b',{text:'Vrátené na úpravu. '}),'Pozri komentáre nižšie, uprav text a pošli príspevok znova.']
+      : [h('b',{text:'Koncept. '}),'Keď je text hotový, pošli ho kolegovi na kontrolu.']));
+    if (!S.ui.send) row.append(h('button',{class:'btn primary',onclick:()=>{S.ui.send=true;redraw();},text: p.status==='changes'?'Poslať znova na kontrolu':'Poslať na kontrolu'}));
+    else box.append(sendPanel(p, redraw));
+  } else if (p.status==='review'){
+    row.append(h('div',{class:'flowMsg'}, h('b',{text:'Na kontrole.'}), p.reviewer?[' Kontroluje: ',h('b',{text:p.reviewer}),'.']:'', same(p.reviewer,me())?' Čaká na tvoje rozhodnutie.':''));
+    if (!S.ui.decide) row.append(h('button',{class:'btn ok',onclick:()=>{S.ui.decide='approve';redraw();},text:'Schváliť'}), h('button',{class:'btn',onclick:()=>{S.ui.decide='changes';redraw();},text:'Vrátiť na úpravu'}));
+    else box.append(decidePanel(redraw));
+  } else if (p.status==='approved'){
+    row.append(h('div',{class:'flowMsg'}, h('b',{text:'Schválené. '}),'Príspevok je pripravený na zverejnenie.'),
+      h('button',{class:'btn primary',onclick:()=>setStatus('published','published','',null,{publishedAt:Date.now()}),text:'Označiť ako publikované'}),
+      h('button',{class:'btn ghost',onclick:()=>setStatus('draft'),text:'Vrátiť do konceptu'}));
+  } else {
+    row.append(h('div',{class:'flowMsg'}, h('b',{text:'Publikované. '}), p.publishedAt?'Označené '+fmtTime(p.publishedAt)+'.':''),
+      h('button',{class:'btn ghost',onclick:()=>setStatus('approved'),text:'Znovu otvoriť'}));
+  }
+}
+function sendPanel(p, redraw){
+  const others=S.team.members.filter(m=>!same(m.name,me()));
+  const who = others.length
+    ? h('select',{id:'send-who'}, h('option',{value:'',text:'— vyber kolegu —'}), others.map(m=>h('option',{value:m.name,text:m.name})))
+    : h('input',{type:'text',id:'send-who',list:'people',placeholder:'Meno kolegu'});
+  if (p.reviewer && (!others.length || others.some(m=>same(m.name,p.reviewer)))) who.value = others.length ? (others.find(m=>same(m.name,p.reviewer))||{}).name||'' : p.reviewer;
+  const msg=h('textarea',{id:'send-msg',placeholder:'Správa pre kolegu (nepovinné), napr. „Over prosím fakty o NAMUR.“'});
+  const err=h('span',{class:'note'});
+  return h('div',{class:'flowPanel'},
+    h('label',{class:'f'}, h('span',{class:'lab',text:'Kto má príspevok skontrolovať?'}), who), msg, err,
+    h('div',{class:'flowRow'},
+      h('button',{class:'btn primary',onclick:()=>{
+        const r=who.value.trim(); if(!r){ err.textContent='Vyber kolegu.'; who.focus(); return; }
+        setStatus('review','sent',msg.value.trim(),r,Object.assign({reviewer:r,sentAt:Date.now()}, p.createdBy?{}:{createdBy:me()}));
+      },text:'Odoslať na kontrolu'}),
+      h('button',{class:'btn ghost',onclick:()=>{S.ui.send=false;redraw();},text:'Zrušiť'})),
+    h('span',{class:'note',text:'Kolega príspevok uvidí vo filtri „Čaká na mňa“. Po odoslaní mu môžeš jedným klikom napísať v Teams alebo e-mailom.'}));
+}
+function decidePanel(redraw){
+  const approve=S.ui.decide==='approve';
+  const ta=h('textarea',{id:'decide-msg',placeholder: approve?'Komentár (nepovinné)':'Čo treba upraviť? (povinné)'});
+  const err=h('span',{class:'note'});
+  return h('div',{class:'flowPanel'},
+    h('span',{class:'lab',text: approve?'Schváliť príspevok':'Vrátiť na úpravu'}), ta, err,
+    h('div',{class:'flowRow'},
+      h('button',{class: approve?'btn ok':'btn primary', onclick:()=>{
+        const t=ta.value.trim();
+        if (!approve && !t){ err.textContent='Napíš, čo treba upraviť.'; ta.focus(); return; }
+        setStatus(approve?'approved':'changes', approve?'approve':'changes', t, null, approve?{approvedAt:Date.now(),approvedBy:me()}:null);
+      }, text: approve?'Potvrdiť schválenie':'Vrátiť na úpravu'}),
+      h('button',{class:'btn ghost',onclick:()=>{S.ui.decide=null;redraw();},text:'Zrušiť'})));
+}
+
+/* ---------- photos ---------- */
+async function photoUrl(name){
+  if (!name) return null;
+  if (S.photoUrls.has(name)) return S.photoUrls.get(name);
+  try{ const f=await (await S.dirs.photos.getFileHandle(name)).getFile(); if(!f.size) return null; const u=URL.createObjectURL(f); S.photoUrls.set(name,u); return u; }
+  catch(e){ return null; }
+}
+async function renderPhoto(p){
+  const box=$('#d-photo'); if(!box) return;
+  const key=(p.photo||'')+'|'+(S.ui.uploading?1:0)+'|'+(S.photoUrls.has(p.photo)?1:0);
+  if (S.photoKey===key) return; S.photoKey=key;
+  const wrap=h('div',{class:'photo'});
+  if (S.ui.uploading) wrap.append(h('p',{text:'Ukladám fotku…'}));
+  else if (p.photo){
+    const u=await photoUrl(p.photo);
+    if (S.builtFor!==p.id) return;
+    wrap.append(u ? h('img',{src:u,alt:'Fotka k príspevku'}) : h('p',{text:'Fotka sa ešte synchronizuje z OneDrive…'}),
+      h('div',{class:'acts'}, h('button',{class:'btn small',onclick:pickFile,text:'Vymeniť fotku'}), h('button',{class:'btn small danger',onclick:removePhoto,text:'Odstrániť'})));
+    if (!u) S.photoKey=null;
+  } else wrap.append(h('p',{text:'Pretiahni sem fotku alebo vizuál z Canvy (JPG, PNG, WebP).'}), h('button',{class:'btn small',onclick:pickFile,text:'Nahrať fotku'}));
+  wrap.addEventListener('dragover',e=>{e.preventDefault();wrap.classList.add('drag');});
+  wrap.addEventListener('dragleave',()=>wrap.classList.remove('drag'));
+  wrap.addEventListener('drop',e=>{e.preventDefault();wrap.classList.remove('drag');const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) addPhoto(f);});
+  box.replaceChildren(wrap);
+}
+function pickFile(){ const f=$('#fileIn'); f.value=''; f.click(); }
+$('#fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) addPhoto(f); });
+function addPhoto(file){
+  const id=S.builtFor; const p=S.posts.get(id); if(!p) return;
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)){ toast('Použi fotku vo formáte JPG, PNG alebo WebP.'); return; }
+  S.ui.uploading=true; S.photoKey=null; renderPhoto(p);
+  const img=new Image(); const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    const max=2160, k=Math.min(1, max/Math.max(img.naturalWidth,img.naturalHeight));
+    const c=document.createElement('canvas'); c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
+    const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);
+    c.toBlob(async blob=>{
+      try{
+        const name=id+'-'+Date.now().toString(36)+'.jpg';
+        const fh=await S.dirs.photos.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(blob); await w.close();
+        const old=p.photo;
+        setLocal(id,{photo:name},0); await flush(id);
+        if (old && old!==name){ try{ await S.dirs.photos.removeEntry(old); }catch(e){} }
+        toast('Fotka uložená do priečinka.');
+      }catch(e){ toast('Fotku sa nepodarilo uložiť do priečinka.'); }
+      S.ui.uploading=false; S.photoKey=null; const q=S.posts.get(id); if(q && S.builtFor===id){ renderPhoto(q); updatePreview(); }
+    },'image/jpeg',0.9);
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); S.ui.uploading=false; S.photoKey=null; renderPhoto(p); toast('Fotku sa nepodarilo načítať.'); };
+  img.src=url;
+}
+async function removePhoto(){
+  const id=S.builtFor; const p=S.posts.get(id); if(!p||!p.photo) return;
+  const old=p.photo; setLocal(id,{photo:null},0); await flush(id);
+  try{ await S.dirs.photos.removeEntry(old); }catch(e){}
+  S.photoKey=null; renderDetail();
+}
+
+/* ---------- preview + checks ---------- */
+async function updatePreview(){
+  const p=S.posts.get(S.builtFor); if(!p) return;
+  const el=$('#f-text'); const text=el? el.value : (p.text||'');
+  const d=pDate(($('#f-date')||{}).value||p.date);
+  const prev=$('#d-preview'); if(!prev) return;
+  const lines=text.split('\n');
+  let short=lines.slice(0,3).join('\n'); if(short.length>210) short=short.slice(0,210).replace(/\s+\S*$/,'');
+  const truncated = short.length < text.trimEnd().length;
+  const tx=h('div',{class:'liText'});
+  if (!text.trim()) tx.append(h('span',{class:'liPh',text:'Text príspevku sa zobrazí tu.'}));
+  else if (truncated && !S.ui.expanded) tx.append(short.trimEnd(),'… ',h('button',{class:'more',onclick:()=>{S.ui.expanded=true;updatePreview();},text:'viac'}));
+  else { tx.append(text); if(truncated) tx.append(' ',h('button',{class:'more',onclick:()=>{S.ui.expanded=false;updatePreview();},text:'menej'})); }
+  const imgBox = p.photo ? h('div',{class:'liImg'}) : h('div',{class:'liNoImg',text:'Bez fotky'});
+  prev.replaceChildren(h('div',{class:'li'},
+    h('div',{class:'liHead'}, h('div',{class:'liLogo',text:'emst'}), h('div',{}, h('div',{class:'liName',text:'emst s.r.o.'}), h('div',{class:'liSub',text:fmtLong(d)}))),
+    tx, imgBox));
+  renderChecks(p,text,d);
+  if (p.photo){ const u=await photoUrl(p.photo); if(u) imgBox.append(h('img',{src:u,alt:''})); else imgBox.replaceWith(h('div',{class:'liNoImg',text:'Fotka sa synchronizuje…'})); }
+}
+function renderChecks(p,text,d){
+  const box=$('#d-checks'); if(!box) return;
+  const n=[...text].length;
+  const tags=(text.match(/#[\p{L}\p{N}_]+/gu)||[]).length;
+  const tail=text.trim().slice(-400);
+  const typeV=($('#f-type')||{}).value||p.type;
+  const wd=d? d.getDay() : null;
+  const rows=[];
+  rows.push(n>3000 ? ['warn','Text je dlhší, ako LinkedIn dovolí','max. 3 000 znakov',n+' / 3 000'] : ['ok','Dĺžka textu','LinkedIn dovolí najviac 3 000 znakov',n+' / 3 000']);
+  rows.push(tags>=3&&tags<=5 ? ['ok','Hashtagy','',String(tags)] : ['info','Hashtagy', tags<3?'Pridaj aspoň 3, odporúčame 3 až 5':'Odporúčame 3 až 5', String(tags)]);
+  rows.push(/[?？]/.test(tail) ? ['ok','Otázka na konci','pomáha rozbehnúť diskusiu',''] : ['info','Chýba otázka na konci','pridaj otázku pre čitateľov','']);
+  rows.push(/\*/.test(text) ? ['warn','Text obsahuje hviezdičky *','LinkedIn nezobrazí tučné písmo, hviezdičky ostanú viditeľné',''] : ['ok','Bez hviezdičiek *','formátovanie sa zobrazí správne','']);
+  rows.push(p.photo ? ['ok','Fotka je pridaná','',''] : ['warn','Chýba fotka','','']);
+  if (wd===null) rows.push(['info','Dátum nie je nastavený','','']);
+  else if (typeV==='Referencia') rows.push(wd===5 ? ['ok','Referencia v piatok','podľa plánu',''] : ['info','Referencia nie je v piatok','plán: referencie v piatok',fmtWd(d)]);
+  else rows.push(wd===2 ? ['ok','Utorok','podľa plánu',''] : ['info','Iný deň ako utorok','plán: odborné príspevky v utorok',fmtWd(d)]);
+  const sym={ok:'✓',warn:'!',info:'i'};
+  box.replaceChildren(...rows.map(([st,t,s,v])=>h('div',{class:'chk '+st}, h('span',{class:'ic',text:sym[st]}), h('span',{}, t, s?h('small',{text:s}):null), h('span',{class:'val',text:v}))));
+}
+async function copyText(){
+  const el=$('#f-text'); const t=el? el.value : '';
+  try { await navigator.clipboard.writeText(t); toast('Text skopírovaný'); }
+  catch(e){ if(el){ el.focus(); el.select(); } toast('Text je označený, skopíruj ho cez Ctrl+C.'); }
+}
+
+/* ---------- comments ---------- */
+function initials(n){ return (n||'?').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase(); }
+function drawComments(){
+  const box=$('#d-comments'); if(!box) return;
+  const list=(S.comments.get(S.builtFor)||[]).slice();
+  if (!list.length){ box.replaceChildren(h('div',{class:'noCm',text:'Zatiaľ bez komentárov.'})); return; }
+  box.replaceChildren(...list.map(c=>h('div',{class:'cm'},
+    h('span',{class:'av ini',text:initials(c.author)}),
+    h('div',{}, h('div',{class:'cmHead'}, h('b',{text:c.author||'Niekto'}),
+        KIND[c.kind] ? h('span',{class:'pill '+(KIND_CLS[c.kind]||'st-draft'),text:KIND[c.kind]+(c.kind==='sent'&&c.to?' → '+c.to:'')}) : null,
+        h('span',{text:fmtTime(c.at)})),
+      c.text ? h('div',{class:'cmText',text:c.text}) : null))));
+}
+async function addComment(){
+  const ta=$('#c-text'); const t=ta.value.trim();
+  if (!t){ ta.focus(); return; }
+  if (needName()) return;
+  if (await writeComment(S.builtFor, {kind:'comment', text:t, author:me(), at:Date.now()})) ta.value='';
+}
+
+/* ---------- delete ---------- */
+function renderFoot(p){
+  const f=$('#d-foot'); if(!f) return;
+  if (!S.ui.confirmDel){ f.replaceChildren(h('button',{class:'btn small danger',onclick:()=>{S.ui.confirmDel=true;renderFoot(p);},text:'Vymazať príspevok'})); return; }
+  f.replaceChildren(h('span',{class:'note',text:'Naozaj vymazať aj s komentármi a fotkou? Zmizne aj kolegovi.'}),
+    h('button',{class:'btn small',onclick:()=>{S.ui.confirmDel=false;renderFoot(p);},text:'Nechať'}),
+    h('button',{class:'btn small primary',onclick:()=>deletePost(p.id),text:'Vymazať'}));
+}
+async function deletePost(id){
+  const p=S.posts.get(id); if(!p) return;
+  clearTimeout(S.timers.get(id)); S.timers.delete(id); S.pending.delete(id);
+  try{
+    try{ await S.dirs.posts.removeEntry(id+'.json'); }catch(e){}
+    try{ await S.dirs.comments.removeEntry(id,{recursive:true}); }catch(e){}
+    if (p.photo){ try{ await S.dirs.photos.removeEntry(p.photo); }catch(e){} }
+    S.posts.delete(id); S.comments.delete(id);
+    select(null); toast('Príspevok vymazaný');
+  }catch(e){ toast('Príspevok sa nepodarilo vymazať.'); }
+}
+
+/* ---------- personal links ---------- */
+async function rememberMyUrl(){
+  const name=me(); if (!name || location.protocol!=='file:') return;
+  const url=location.href.split('#')[0];
+  const m=member(name); if (!m || m.fileUrl===url) return;
+  await saveTeam(t=>{ const x=(t.members||[]).find(y=>same(y.name,name)); if (x) x.fileUrl=url; });
+}
+function openFromHash(){
+  const m=/[#&]p=([A-Za-z0-9_-]+)/.exec(location.hash||''); if (!m) return false;
+  const id=m[1]; if (!S.posts.has(id)) return false;
+  S.filter='all'; document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.f==='all')));
+  select(id);
+  try{ history.replaceState(null,'',location.href.split('#')[0]); }catch(e){}
+  return true;
+}
+window.addEventListener('hashchange',()=>{ if (S.dirs) openFromHash(); });
+
+/* ---------- open what is waiting for me ---------- */
+function focusWaiting(){
+  if (!me() || S.view==='team') return;
+  const waiting=[...S.posts.values()].filter(isMine).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const b=$('#banner');
+  if (!waiting.length){ if (b.dataset.kind==='waiting'){ b.hidden=true; b.dataset.kind=''; } return; }
+  S.filter='mine'; document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.f==='mine')));
+  select(waiting[0].id);
+  b.dataset.kind='waiting'; b.hidden=false;
+  b.replaceChildren(waiting.length===1 ? 'Na teba čaká 1 príspevok, je otvorený nižšie.' : 'Na teba čakajú '+waiting.length+' príspevky. Najnovší je otvorený, ostatné sú v zozname „Čaká na mňa“.',
+    ' ', h('button',{class:'btn ghost small',onclick:()=>{b.hidden=true;b.dataset.kind='';},text:'Zavrieť'}));
+}
+
+/* ---------- top bar ---------- */
+$('#newPost').addEventListener('click', async()=>{
+  const p={id:uid(), date:nextTuesday(), type:'Technický', channel:'LinkedIn', title:'Nový príspevok', text:'', notes:'', photo:null,
+    status:'draft', reviewer:null, createdBy:me()||null, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:me()||null};
+  S.posts.set(p.id,p); S.pending.set(p.id,new Set(Object.keys(p)));
+  select(p.id); await flush(p.id);
+  setTimeout(()=>{ const t=$('#f-title'); if(t){ t.focus(); t.select(); } },50);
+});
+$('#syncNow').addEventListener('click', ()=>syncAll());
+document.querySelectorAll('.filters button').forEach(b=>b.addEventListener('click',()=>{
+  S.filter=b.dataset.f; document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); renderList();
+}));
+$('#meSel').addEventListener('change',()=>{ S.meName=$('#meSel').value; ls('emst-planovac-meno', S.meName); rememberMyUrl(); renderList(); if (S.builtFor){ S.flowKey=null; renderFlow(S.posts.get(S.builtFor)); } focusWaiting(); });
+$('#teamBtn').addEventListener('click', openTeam);
+window.addEventListener('focus', ()=>syncAll());
+window.addEventListener('beforeunload', e=>{ if (S.timers.size){ for (const id of [...S.timers.keys()]) flush(id); e.preventDefault(); e.returnValue=''; } });
+
+/* ---------- start ---------- */
+(async function boot(){
+  if (!('showDirectoryPicker' in window)){ gate('browser'); return; }
+  if (!WEB && location.protocol!=='file:'){ gate('first'); return; }
+  const handle=await idbGet('root');
+  if (handle){
+    try{ if (await handle.queryPermission({mode:'readwrite'})==='granted'){ await connect(handle); return; } }catch(e){}
+    gate('resume', handle); return;
+  }
+  gate('first');
+})();
+})();
+</script>
+
+</body>
+</html>
