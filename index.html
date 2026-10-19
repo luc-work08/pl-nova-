@@ -218,6 +218,13 @@ textarea{resize:vertical;line-height:1.5}
 .chkRow small{display:block;color:var(--ink-3);font-size:13px;margin-top:2px}
 .notice{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border:1px solid var(--line-2);border-left:3px solid var(--st-review);border-radius:8px;padding:10px 12px;background:var(--field)}
 a.btn{text-decoration:none;color:inherit}
+.emp{display:flex;flex-direction:column;gap:8px}
+.empRow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:start}
+.empNo{font-family:var(--f-display);font-weight:700;font-size:13px;color:var(--ink-3);padding-top:10px;text-align:center}
+.empRow textarea{min-height:58px}
+.empActs{display:flex;flex-direction:column;gap:4px}
+.addEmp{align-self:flex-start}
+@media (max-width:600px){.empRow{grid-template-columns:22px minmax(0,1fr)}.empActs{grid-column:2;flex-direction:row}}
 .urlRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
 .urlRow .note{grid-column:1/-1}
 a.btn.primary{color:var(--on-accent)}
@@ -648,7 +655,8 @@ function buildDetail(p){
         h('label',{class:'f'}, h('span',{class:'lab',text:'Pracovný názov'}, h('span',{class:'hint',text:'len pre nás, nezverejní sa'})), field('title', h('input',{type:'text',maxlength:'120'}))),
         h('label',{class:'f'}, h('span',{class:'lab',text:'Text príspevku'}), field('text', h('textarea',{spellcheck:'true',lang:'sk'}))),
         h('div',{class:'f'}, h('span',{class:'lab',text:'Fotka / vizuál'}), h('div',{id:'d-photo'})),
-        h('label',{class:'f'}, h('span',{class:'lab',text:'Poznámka pre kontrolu'}, h('span',{class:'hint',text:'čo má kolega overiť'})), field('notes', h('textarea',{})))),
+        h('label',{class:'f'}, h('span',{class:'lab',text:'Poznámka pre kontrolu'}, h('span',{class:'hint',text:'čo má kolega overiť'})), field('notes', h('textarea',{}))),
+        h('div',{class:'f'}, h('span',{class:'lab',text:'Komentáre pre zamestnancov'}, h('span',{class:'hint',text:'3 až 4 komentáre, ktoré zamestnanci pridajú pod príspevok'})), h('div',{class:'emp',id:'d-emp'}))),
       h('div',{class:'col'},
         h('div',{class:'f'}, h('span',{class:'lab',text:'Náhľad na LinkedIne'}), h('div',{id:'d-preview'})),
         h('div',{class:'prevActs'}, h('button',{class:'btn small',onclick:copyText,text:'Kopírovať text'})),
@@ -673,7 +681,7 @@ function patchDetail(p){
   const parts=[]; if (p.createdBy) parts.push('Vytvoril/a '+p.createdBy);
   if (p.updatedAt) parts.push('upravené '+fmtTime(p.updatedAt)+(p.updatedBy?' ('+p.updatedBy+')':''));
   $('#d-meta').textContent=parts.join(' · ');
-  renderFlow(p); renderPhoto(p); updatePreview(); renderFoot(p);
+  renderFlow(p); renderPhoto(p); renderEmp(p); updatePreview(); renderFoot(p);
 }
 
 /* ---------- workflow ---------- */
@@ -868,11 +876,41 @@ function renderChecks(p,text,d){
   rows.push(/[?？]/.test(tail) ? ['ok','Otázka na konci','pomáha rozbehnúť diskusiu',''] : ['info','Chýba otázka na konci','pridaj otázku pre čitateľov','']);
   rows.push(/\*/.test(text) ? ['warn','Text obsahuje hviezdičky *','LinkedIn nezobrazí tučné písmo, hviezdičky ostanú viditeľné',''] : ['ok','Bez hviezdičiek *','formátovanie sa zobrazí správne','']);
   rows.push(p.photo ? ['ok','Fotka je pridaná','',''] : ['warn','Chýba fotka','','']);
+  const ec=(Array.isArray(p.empComments)?p.empComments:[]).filter(x=>x&&x.trim()).length;
+  rows.push(ec>=3 ? ['ok','Komentáre pre zamestnancov','',String(ec)] : ['info','Komentáre pre zamestnancov','priprav 3 až 4 komentáre',String(ec)]);
   if (wd===null) rows.push(['info','Dátum nie je nastavený','','']);
   else if (typeV==='Referencia') rows.push(wd===5 ? ['ok','Referencia v piatok','podľa plánu',''] : ['info','Referencia nie je v piatok','plán: referencie v piatok',fmtWd(d)]);
   else rows.push(wd===2 ? ['ok','Utorok','podľa plánu',''] : ['info','Iný deň ako utorok','plán: odborné príspevky v utorok',fmtWd(d)]);
   const sym={ok:'✓',warn:'!',info:'i'};
   box.replaceChildren(...rows.map(([st,t,s,v])=>h('div',{class:'chk '+st}, h('span',{class:'ic',text:sym[st]}), h('span',{}, t, s?h('small',{text:s}):null), h('span',{class:'val',text:v}))));
+}
+function readEmp(){ return [...document.querySelectorAll('#d-emp textarea')].map(t=>t.value); }
+function setEmp(arr, focusLast){
+  setLocal(S.builtFor, {empComments:arr}, 0);
+  const p=S.posts.get(S.builtFor); renderEmp(p, true); updatePreview();
+  if (focusLast){ const t=[...document.querySelectorAll('#d-emp textarea')].pop(); if(t) t.focus(); }
+}
+function renderEmp(p, force){
+  const box=$('#d-emp'); if(!box || !p) return;
+  const pend=S.pending.get(p.id)||new Set();
+  if (!force && (box.contains(document.activeElement) || pend.has('empComments'))) return;
+  const list=(Array.isArray(p.empComments) && p.empComments.length) ? p.empComments.slice() : ['','',''];
+  const key=JSON.stringify(list); if (!force && box.dataset.key===key) return; box.dataset.key=key;
+  const rows=list.map((txt,i)=>{
+    const ta=h('textarea',{rows:'2',placeholder:'Komentár '+(i+1),'aria-label':'Komentár pre zamestnancov '+(i+1)}); ta.value=txt||'';
+    ta.addEventListener('input',()=>{ const arr=readEmp(); box.dataset.key=JSON.stringify(arr); setLocal(S.builtFor,{empComments:arr},800); updatePreview(); });
+    ta.addEventListener('blur',()=>{ if (S.timers.has(S.builtFor)) flush(S.builtFor); });
+    return h('div',{class:'empRow'}, h('span',{class:'empNo',text:String(i+1)}), ta,
+      h('div',{class:'empActs'},
+        h('button',{class:'btn small',onclick:()=>copyStr(ta.value, ta),text:'Kopírovať'}),
+        list.length>1 ? h('button',{class:'btn small ghost','aria-label':'Odstrániť komentár '+(i+1),onclick:()=>{ const arr=readEmp(); arr.splice(i,1); setEmp(arr,false); },text:'Odstrániť'}) : null));
+  });
+  box.replaceChildren(...rows, list.length<6 ? h('button',{class:'btn small ghost addEmp',onclick:()=>{ const arr=readEmp(); arr.push(''); setEmp(arr,true); },text:'+ Pridať komentár'}) : null);
+}
+async function copyStr(t, el){
+  if (!t || !t.trim()){ toast('Komentár je prázdny.'); return; }
+  try { await navigator.clipboard.writeText(t); toast('Komentár skopírovaný'); }
+  catch(e){ if(el){ el.focus(); el.select(); } toast('Text je označený, skopíruj ho cez Ctrl+C.'); }
 }
 async function copyText(){
   const el=$('#f-text'); const t=el? el.value : '';
