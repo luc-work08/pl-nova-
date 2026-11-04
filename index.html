@@ -233,14 +233,40 @@ a.btn{text-decoration:none;color:inherit}
 .urlRow .note{grid-column:1/-1}
 a.btn.primary{color:var(--on-accent)}
 @media (max-width:600px){.addRow{grid-template-columns:minmax(0,1fr)}}
+/* media: PDF carousel */
+.pdfThumb{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.pdfThumb canvas{width:150px;height:auto;border-radius:6px;border:1px solid var(--line);background:#fff;display:block}
+.pdfInfo{display:flex;flex-direction:column;gap:4px;font-size:14px}
+.pdfInfo b{font-weight:600}
+.liDoc{border-top:1px solid var(--line);background:var(--surface-2)}
+.liDocBar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;font-size:13px;color:var(--ink-2);font-family:var(--f-li)}
+.liDocBar b{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.liDocPage{position:relative;background:#fff;min-height:120px;display:flex;align-items:center;justify-content:center}
+.liDocPage canvas{display:block;width:100%;height:auto}
+.liDocPage .nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center}
+.liDocPage .nav:disabled{opacity:.25;cursor:default}
+.liDocPage .nav.prev{left:8px}.liDocPage .nav.next{right:8px}
+.liDocPage .ld{color:#777;font-size:13px;padding:30px}
+/* next up */
+.nextUp{margin:6px 4px 4px;border:1px solid var(--line-2);border-radius:10px;background:var(--field);padding:4px 4px 6px}
+.nextUp .group{padding:8px 8px 4px;color:var(--accent)}
+.nextUp .item{padding:8px}
+.ready{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.ready span{font-size:11.5px;border-radius:999px;padding:1px 8px;font-family:var(--f-display);font-weight:600}
+.ready .y{color:var(--st-ok);background:var(--st-ok-bg)}
+.ready .n{color:var(--st-changes);background:var(--st-changes-bg)}
+.late{color:var(--st-changes);font-weight:600}
+.planTag{font-size:12px;color:var(--ink-3)}
+.fbCopy{display:flex;justify-content:flex-end}
 </style>
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="bar"></span><div><small>emst s.r.o. · LinkedIn a Instagram</small><h1>Plánovač príspevkov</h1></div></div>
+  <div class="brand"><span class="bar"></span><div><small>emst s.r.o. · LinkedIn, Instagram a Facebook</small><h1>Plánovač príspevkov</h1></div></div>
   <div class="topActs" id="topActs" hidden>
     <label class="who"><span class="lab">Som</span><select id="meSel"></select></label>
     <button class="btn" id="teamBtn">Tím a upozornenia</button>
+    <button class="btn" id="planBtn" title="Načítať príspevky z obsahového plánu (súbor .json)">Načítať plán</button>
     <button class="btn primary" id="newPost">+ Nový príspevok</button>
     <div class="sync"><span id="syncState">Pripájam…</span><button class="btn ghost small" id="syncNow" title="Načítať zmeny od kolegov">Obnoviť</button></div>
   </div>
@@ -262,7 +288,8 @@ a.btn.primary{color:var(--on-accent)}
   <main class="panel detail" id="detail"></main>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-<input type="file" id="fileIn" accept="image/jpeg,image/png,image/webp" hidden>
+<input type="file" id="fileIn" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" hidden>
+<input type="file" id="planIn" accept="application/json,.json" hidden>
 <datalist id="people"></datalist>
 
 <script type="application/json" id="seedData">[]</script>
@@ -292,15 +319,22 @@ const STATUS = {
 };
 const KIND = {sent:'poslal/a na kontrolu', approve:'schválil/a', changes:'vrátil/a na úpravu', published:'označil/a ako publikované', comment:''};
 const KIND_CLS = {sent:'st-review', approve:'st-ok', changes:'st-changes', published:'st-pub'};
-const TYPES = ['Technický','Referencia','Servis','Udalosť','Firma'];
-const CHANNELS = ['LinkedIn','Instagram','LinkedIn + Instagram'];
-const FIELDS = ['date','type','channel','title','text','notes'];
+const TYPES = ['Technický','Referencia','Servis','Udalosť','Slovník','Zákulisie','Kariéra','Ľudia','Firma'];
+const CHANNELS = ['LinkedIn','Instagram','Facebook','Instagram + Facebook','LinkedIn + Instagram','LinkedIn + Instagram + Facebook'];
+const FIELDS = ['date','type','channel','title','text','textFb','notes'];
+const PLAN_FIELDS = ['date','type','channel','title','text','textFb'];
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const hasCh = (p, c) => String((p&&p.channel)||'').includes(c);
+const isPdf = name => /\.pdf$/i.test(name||'');
+const todayStr = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const fmtMB = b => b ? (b/1048576).toLocaleString('sk-SK',{maximumFractionDigits:1})+' MB' : '';
+const slovPages = n => n===1 ? '1 strana' : (n>=2&&n<=4) ? n+' strany' : n+' strán';
 const WEB = (location.protocol==='https:' || location.hostname==='localhost') && !/sharepoint\.com$/i.test(location.hostname);
 const DEFAULT_URL = '';
 
 const S = { dirs:null, root:null, posts:new Map(), comments:new Map(), seen:new Map(), pending:new Map(), timers:new Map(),
-  photoUrls:new Map(), selected:null, filter:'all', builtFor:null, flowKey:null, ui:{}, syncing:false, lastSync:0,
-  team:{members:[], autoNotify:false, plannerUrl:DEFAULT_URL}, meName:'', view:null };
+  photoUrls:new Map(), pdfDocs:new Map(), pdfRenders:new Map(), selected:null, filter:'all', builtFor:null, flowKey:null, ui:{}, syncing:false, lastSync:0,
+  team:{members:[], autoNotify:false, plannerUrl:DEFAULT_URL, planRemoved:[]}, meName:'', view:null };
 
 /* ---------- small helpers ---------- */
 function uid(){ return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -404,6 +438,79 @@ async function seed(){
   if (seedPosts.length) toast('Do priečinka som pridal '+seedPosts.length+' naplánované príspevky.');
 }
 
+/* ---------- content plan import ----------
+   planovac-data/plan.json = { "version":1, "source":"…", "posts":[ { "planId":"2026-11-09-documentation", "date":"2026-11-09",
+     "type":"Technický", "channel":"Instagram", "title":"…", "text":"…", "textFb":"…", "format":"Carousel 4", "planStatus":"Use template",
+     "status":"draft" } ] }
+   Each plan post gets a fixed id (plan-<planId>), so everyone who imports the same file updates the same post.
+   A field is updated from the plan only while nobody changed it in the planner. Deleted plan posts are not brought back. */
+const planPostId = planId => 'plan-'+String(planId).toLowerCase().replace(/[^a-z0-9_-]+/g,'-').slice(0,80);
+function parsePlan(txt){
+  const j=JSON.parse(txt); const list=Array.isArray(j) ? j : (j && Array.isArray(j.posts) ? j.posts : null);
+  if (!list) throw new Error('format');
+  return list.filter(x=>x && typeof x.planId==='string' && x.planId.trim() && (!x.date || /^\d{4}-\d{2}-\d{2}$/.test(x.date)));
+}
+async function importPlan(list){
+  const removed=new Set((S.team.planRemoved||[]).map(String));
+  let added=0, updated=0;
+  for (const it of list){
+    if (removed.has(it.planId)) continue;
+    const id=planPostId(it.planId);
+    const meta={planId:it.planId, planFormat:it.format||'', planStatus:it.planStatus||''};
+    const cur=S.posts.get(id);
+    if (!cur){
+      const p=Object.assign({id, date:'', type:'Technický', channel:'Instagram', title:'', text:'', textFb:'', notes:'', photo:null,
+        status:'draft', reviewer:null, createdBy:null, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:null}, meta, {planSnap:{}});
+      for (const f of PLAN_FIELDS) if (typeof it[f]==='string'){ p[f]=it[f]; p.planSnap[f]=it[f]; }
+      if (STATUS[it.status]) p.status=it.status;
+      if (p.status==='published') p.publishedAt=Date.now();
+      S.posts.set(id,p); S.pending.set(id,new Set(Object.keys(p))); await flush(id); added++;
+      continue;
+    }
+    const snap=Object.assign({}, cur.planSnap||{}), ch={};
+    for (const f of PLAN_FIELDS){
+      if (typeof it[f]!=='string') continue;
+      const v=cur[f]==null?'':String(cur[f]);
+      const untouched = !v.trim() || (f in snap && v===snap[f]);
+      if (untouched && v!==it[f]) ch[f]=it[f];
+      snap[f]=it[f];
+    }
+    for (const k of Object.keys(meta)) if ((cur[k]||'')!==meta[k]) ch[k]=meta[k];
+    if (JSON.stringify(snap)!==JSON.stringify(cur.planSnap||{})) ch.planSnap=snap;
+    if (Object.keys(ch).length){
+      const p=S.posts.get(id); Object.assign(p, ch);
+      const set=S.pending.get(id)||new Set(); Object.keys(ch).forEach(k=>set.add(k)); S.pending.set(id,set);
+      await flush(id);
+      if (PLAN_FIELDS.some(f=>f in ch)) updated++;
+    }
+  }
+  return {added, updated};
+}
+async function checkPlanFile(){
+  if (!S.dirs) return false;
+  try{
+    const fh=await S.dirs.data.getFileHandle('plan.json',{create:false});
+    const f=await fh.getFile(); const key=f.lastModified+':'+f.size;
+    if (S.seen.get('plan')===key) return false;
+    let list; try{ list=parsePlan(await f.text()); }catch(e){ return false; }   // still syncing
+    S.seen.set('plan',key);
+    const r=await importPlan(list);
+    if (r.added || r.updated) toast('Obsahový plán: '+r.added+' nových, '+r.updated+' aktualizovaných príspevkov.');
+    return !!(r.added || r.updated);
+  }catch(e){ return false; }
+}
+async function loadPlanFromFile(file){
+  let txt, list;
+  try{ txt=await file.text(); list=parsePlan(txt); }
+  catch(e){ toast('Súbor nie je obsahový plán (.json z plánu).'); return; }
+  if (!list.length){ toast('V súbore nie sú žiadne príspevky.'); return; }
+  try{ const fh=await S.dirs.data.getFileHandle('plan.json',{create:true}); const w=await fh.createWritable(); await w.write(txt); await w.close();
+       const f=await fh.getFile(); S.seen.set('plan', f.lastModified+':'+f.size); }catch(e){}
+  const r=await importPlan(list);
+  refreshPeople(); renderList(); renderDetail();
+  toast(r.added||r.updated ? 'Plán načítaný: '+r.added+' nových, '+r.updated+' aktualizovaných príspevkov.' : 'Plán načítaný, všetko už bolo aktuálne.');
+}
+
 /* ---------- team (profiles) ---------- */
 async function loadTeam(force){
   try{
@@ -411,7 +518,7 @@ async function loadTeam(force){
     const f=await fh.getFile(); const key=f.lastModified+':'+f.size;
     if (!force && S.seen.get('team')===key) return false;
     const t=JSON.parse(await f.text()); S.seen.set('team',key);
-    if (t && Array.isArray(t.members)) S.team={members:t.members.filter(m=>m&&m.name), autoNotify:!!t.autoNotify, plannerUrl:typeof t.plannerUrl==='string'?t.plannerUrl:DEFAULT_URL};
+    if (t && Array.isArray(t.members)) S.team={members:t.members.filter(m=>m&&m.name), autoNotify:!!t.autoNotify, plannerUrl:typeof t.plannerUrl==='string'?t.plannerUrl:DEFAULT_URL, planRemoved:Array.isArray(t.planRemoved)?t.planRemoved:[]};
   }catch(e){ if (!force) return false; }
   renderMeSel(); if (S.view==='team') renderTeamView();
   return true;
@@ -424,7 +531,7 @@ async function saveTeam(mutate){
     mutate(cur);
     const w=await fh.createWritable(); await w.write(JSON.stringify(cur,null,1)); await w.close();
     const f2=await fh.getFile(); S.seen.set('team', f2.lastModified+':'+f2.size);
-    S.team={members:cur.members, autoNotify:!!cur.autoNotify, plannerUrl:typeof cur.plannerUrl==='string'?cur.plannerUrl:DEFAULT_URL};
+    S.team={members:cur.members, autoNotify:!!cur.autoNotify, plannerUrl:typeof cur.plannerUrl==='string'?cur.plannerUrl:DEFAULT_URL, planRemoved:Array.isArray(cur.planRemoved)?cur.planRemoved:[]};
     renderMeSel(); renderTeamView(); refreshPeople();
   }catch(e){ toast('Tím sa nepodarilo uložiť do priečinka.'); }
 }
@@ -516,6 +623,7 @@ async function syncAll(){
         if (pid===S.builtFor) S.cmDirty=true;
       }
     }
+    if (await checkPlanFile()) changed=true;
     S.lastSync=Date.now(); setSync('Synchronizované '+hm(S.lastSync));
   }catch(e){ setSync('Priečinok nie je dostupný'); }
   finally{ S.syncing=false; }
@@ -583,6 +691,10 @@ function renderList(){
   }
   const upcoming=rows.filter(p=>p.status!=='published').sort((a,b)=>(a.date||'9').localeCompare(b.date||'9'));
   const pub=rows.filter(p=>p.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if (S.filter==='all'){
+    const next=upcoming.filter(p=>p.date).slice(0,3);
+    if (next.length) body.append(h('div',{class:'nextUp'}, h('div',{class:'group',text:'Ďalej na rade'}), next.map(p=>item(p,true))));
+  }
   let lastM=null;
   for (const p of upcoming){
     const d=pDate(p.date); const m=d ? d.toLocaleDateString('sk-SK',{month:'long',year:'numeric'}) : 'Bez dátumu';
@@ -597,12 +709,22 @@ function renderList(){
     body.append(det);
   }
 }
-function item(p){
+function readiness(p){
+  const r=[['Text', !!(p.text||'').trim()]];
+  if (hasCh(p,'Facebook')) r.push(['FB text', !!(p.textFb||'').trim()]);
+  r.push([isPdf(p.photo)?'PDF':'Vizuál', !!p.photo], ['Schválené', p.status==='approved'||p.status==='published']);
+  return r;
+}
+function item(p, rich){
   const d=pDate(p.date);
+  const late = p.status!=='published' && p.date && p.date<todayStr();
   return h('button',{class:'item','aria-current':String(p.id===S.selected), onclick:()=>select(p.id)},
     h('span',{class:'date'}, h('span',{class:'wd',text:fmtWd(d)}), h('span',{class:'dm',text:fmtDm(d)||'—'})),
     h('span',{}, h('div',{class:'ttl',text:p.title||'Bez názvu'}),
-      h('div',{class:'sub'}, pill(p.status), h('span',{text:[p.type,p.channel].filter(Boolean).join(' · ')}))),
+      h('div',{class:'sub'}, pill(p.status), h('span',{text:[p.type,p.channel].filter(Boolean).join(' · ')}),
+        late ? h('span',{class:'late',text:'po termíne'}) : null,
+        p.planFormat ? h('span',{class:'planTag',text:p.planFormat}) : null),
+      rich ? h('div',{class:'ready'}, readiness(p).map(([t,ok])=>h('span',{class:ok?'y':'n',text:(ok?'✓ ':'✗ ')+t}))) : null),
     isMine(p) ? h('span',{class:'waiting',title:'Čaká na teba'}) : null);
 }
 function select(id){
@@ -631,13 +753,24 @@ function renderDetail(){
   if (S.builtFor!==p.id){ buildDetail(p); S.builtFor=p.id; drawComments(); }
   patchDetail(p);
 }
+function curChannel(p){ const el=$('#f-channel'); return {channel:(el&&el.value)||(p&&p.channel)||''}; }
+function channelUi(p){
+  const c=curChannel(p);
+  const emp=$('#d-empwrap'); if (emp) emp.hidden=!hasCh(c,'LinkedIn');
+  const fb=$('#d-fbwrap'); if (fb) fb.hidden=!hasCh(c,'Facebook') && !((p&&p.textFb)||'').trim();
+  const hint=$('#d-texthint');
+  if (hint) hint.textContent = hasCh(c,'LinkedIn') ? (hasCh(c,'Instagram') ? 'pre LinkedIn aj Instagram' : 'LinkedIn, slovensky')
+    : hasCh(c,'Instagram') ? 'Instagram, anglicky, max. 5 hashtagov' : hasCh(c,'Facebook') ? 'pre Facebook použi pole nižšie' : '';
+  const lab=$('#d-prevlab'); if (lab) lab.textContent = hasCh(c,'LinkedIn') ? 'Náhľad na LinkedIne' : hasCh(c,'Instagram') ? 'Náhľad (text pre Instagram)' : 'Náhľad';
+}
 function field(name, el){
   el.id='f-'+name;
   const ev = el.tagName==='SELECT' || el.type==='date' ? 'change' : 'input';
   el.addEventListener(ev, ()=>{
     setLocal(S.builtFor, {[name]:el.value}, ev==='change'?0:800);
     if (['title','date','type','channel'].includes(name)) renderList();
-    if (name==='text'||name==='date'||name==='type') updatePreview();
+    if (name==='channel') channelUi(S.posts.get(S.builtFor));
+    if (['text','textFb','date','type','channel'].includes(name)) updatePreview();
   });
   el.addEventListener('blur', ()=>{ if (S.timers.has(S.builtFor)) flush(S.builtFor); });
   return el;
@@ -657,14 +790,17 @@ function buildDetail(p){
           h('label',{class:'f'}, h('span',{class:'lab',text:'Typ'}), field('type', sel(TYPES))),
           h('label',{class:'f'}, h('span',{class:'lab',text:'Kanál'}), field('channel', sel(CHANNELS)))),
         h('label',{class:'f'}, h('span',{class:'lab',text:'Pracovný názov'}, h('span',{class:'hint',text:'len pre nás, nezverejní sa'})), field('title', h('input',{type:'text',maxlength:'120'}))),
-        h('label',{class:'f grow'}, h('span',{class:'lab',text:'Text príspevku'}), field('text', h('textarea',{spellcheck:'true',lang:'sk'}))),
-        h('div',{class:'f'}, h('span',{class:'lab',text:'Fotka / vizuál'}), h('div',{id:'d-photo'}))),
+        h('label',{class:'f grow'}, h('span',{class:'lab',text:'Text príspevku'}, h('span',{class:'hint',id:'d-texthint'})), field('text', h('textarea',{spellcheck:'true',lang:'sk'}))),
+        h('div',{class:'f',id:'d-fbwrap'},
+          h('label',{class:'f'}, h('span',{class:'lab',text:'Text pre Facebook'}, h('span',{class:'hint',text:'slovensky, max. 3 hashtagy'})), field('textFb', h('textarea',{spellcheck:'true',lang:'sk',rows:'6'}))),
+          h('div',{class:'fbCopy'}, h('button',{class:'btn small',onclick:()=>copyStr(($('#f-textFb')||{}).value||'', $('#f-textFb'), 'Text pre Facebook skopírovaný'),text:'Kopírovať FB text'}))),
+        h('div',{class:'f'}, h('span',{class:'lab',text:'Fotka alebo PDF karusel'}), h('div',{id:'d-photo'}))),
       h('div',{class:'col'},
-        h('div',{class:'f'}, h('span',{class:'lab',text:'Náhľad na LinkedIne'}), h('div',{id:'d-preview'})),
+        h('div',{class:'f'}, h('span',{class:'lab',id:'d-prevlab',text:'Náhľad'}), h('div',{id:'d-preview'})),
         h('div',{class:'prevActs'}, h('button',{class:'btn small',onclick:copyText,text:'Kopírovať text'})),
         h('div',{class:'f'}, h('span',{class:'lab',text:'Rýchla kontrola'}), h('div',{class:'checks',id:'d-checks'})),
         h('label',{class:'f'}, h('span',{class:'lab',text:'Poznámka pre kontrolu'}, h('span',{class:'hint',text:'čo má kolega overiť'})), field('notes', h('textarea',{}))))),
-    h('div',{class:'empSection'}, h('div',{class:'f'}, h('span',{class:'lab',text:'Komentáre pre zamestnancov'}, h('span',{class:'hint',text:'3 až 4 komentáre, ktoré zamestnanci pridajú pod príspevok'})), h('div',{class:'emp',id:'d-emp'}))),
+    h('div',{class:'empSection',id:'d-empwrap'}, h('div',{class:'f'}, h('span',{class:'lab',text:'Komentáre pre zamestnancov'}, h('span',{class:'hint',text:'3 až 4 komentáre, ktoré zamestnanci pridajú pod príspevok'})), h('div',{class:'emp',id:'d-emp'}))),
     h('div',{class:'thread'}, h('h3',{text:'Komentáre a schvaľovanie'}), h('div',{id:'d-comments'}),
       h('div',{class:'composer'},
         h('textarea',{id:'c-text',placeholder:'Napíš komentár, napr. čo upraviť…'}),
@@ -682,7 +818,9 @@ function patchDetail(p){
     if (el.value!==v) el.value=v;
   }
   $('#d-pill').replaceChildren(pill(p.status));
-  const parts=[]; if (p.createdBy) parts.push('Vytvoril/a '+p.createdBy);
+  channelUi(p);
+  const parts=[]; if (p.planId) parts.push('Z obsahového plánu'+(p.planFormat?': '+p.planFormat:'')+(p.planStatus?' · '+p.planStatus:''));
+  if (p.createdBy) parts.push('Vytvoril/a '+p.createdBy);
   if (p.updatedAt) parts.push('upravené '+fmtTime(p.updatedAt)+(p.updatedBy?' ('+p.updatedBy+')':''));
   $('#d-meta').textContent=parts.join(' · ');
   renderFlow(p); renderPhoto(p); renderEmp(p); updatePreview(); renderFoot(p);
@@ -788,26 +926,78 @@ function decidePanel(redraw){
       h('button',{class:'btn ghost',onclick:()=>{S.ui.decide=null;redraw();},text:'Zrušiť'})));
 }
 
-/* ---------- photos ---------- */
+/* ---------- photos and PDF carousels ---------- */
+async function mediaFile(name){
+  try{ const f=await (await S.dirs.photos.getFileHandle(name)).getFile(); return f.size ? f : null; }catch(e){ return null; }
+}
 async function photoUrl(name){
   if (!name) return null;
   if (S.photoUrls.has(name)) return S.photoUrls.get(name);
-  try{ const f=await (await S.dirs.photos.getFileHandle(name)).getFile(); if(!f.size) return null; const u=URL.createObjectURL(f); S.photoUrls.set(name,u); return u; }
-  catch(e){ return null; }
+  const f=await mediaFile(name); if (!f) return null;
+  const u=URL.createObjectURL(isPdf(name) ? new Blob([f],{type:'application/pdf'}) : f); S.photoUrls.set(name,u); return u;
+}
+let pdfjsP=null;
+function loadPdfJs(){
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (pdfjsP) return pdfjsP;
+  pdfjsP=new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=PDFJS+'pdf.min.js';
+    s.onload=()=>{ if(!window.pdfjsLib){ rej(new Error('pdfjs')); return; } window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js'; res(window.pdfjsLib); };
+    s.onerror=()=>{ pdfjsP=null; rej(new Error('pdfjs')); };
+    document.head.append(s);
+  });
+  return pdfjsP;
+}
+async function openPdf(data){ const lib=await loadPdfJs(); return lib.getDocument({data, isEvalSupported:false}).promise; }
+function pdfDoc(name){
+  if (S.pdfDocs.has(name)) return S.pdfDocs.get(name);
+  const pr=(async()=>{ const f=await mediaFile(name); if(!f) throw new Error('missing'); return openPdf(new Uint8Array(await f.arrayBuffer())); })();
+  pr.catch(()=>S.pdfDocs.delete(name));
+  S.pdfDocs.set(name, pr); return pr;
+}
+/* renders one page into a fresh canvas; the bitmap is cached so typing doesn't re-render */
+async function pdfCanvas(name, pageNo, cssWidth){
+  const px=Math.round(cssWidth*Math.min(2, window.devicePixelRatio||1));
+  const key=name+'|'+pageNo+'|'+px;
+  let src=S.pdfRenders.get(key);
+  if (!src){
+    const doc=await pdfDoc(name); const page=await doc.getPage(Math.min(Math.max(1,pageNo), doc.numPages));
+    const vp1=page.getViewport({scale:1}); const vp=page.getViewport({scale:px/vp1.width});
+    src=document.createElement('canvas'); src.width=Math.round(vp.width); src.height=Math.round(vp.height);
+    const g=src.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,src.width,src.height);
+    await page.render({canvasContext:g, viewport:vp}).promise;
+    S.pdfRenders.set(key, src);
+  }
+  const c=document.createElement('canvas'); c.width=src.width; c.height=src.height; c.getContext('2d').drawImage(src,0,0);
+  return c;
 }
 async function renderPhoto(p){
   const box=$('#d-photo'); if(!box) return;
-  const key=(p.photo||'')+'|'+(S.ui.uploading?1:0)+'|'+(S.photoUrls.has(p.photo)?1:0);
+  const key=(p.photo||'')+'|'+(S.ui.uploading?1:0)+'|'+(S.photoUrls.has(p.photo)?1:0)+'|'+(p.pages||0);
   if (S.photoKey===key) return; S.photoKey=key;
   const wrap=h('div',{class:'photo'});
-  if (S.ui.uploading) wrap.append(h('p',{text:'Ukladám fotku…'}));
+  const acts=()=>h('div',{class:'acts'}, h('button',{class:'btn small',onclick:pickFile,text:'Vymeniť'}), h('button',{class:'btn small danger',onclick:removePhoto,text:'Odstrániť'}));
+  if (S.ui.uploading) wrap.append(h('p',{text:'Ukladám súbor…'}));
+  else if (p.photo && isPdf(p.photo)){
+    const u=await photoUrl(p.photo);
+    if (S.builtFor!==p.id) return;
+    if (!u){ wrap.append(h('p',{text:'PDF sa ešte synchronizuje z OneDrive…'}), acts()); S.photoKey=null; }
+    else {
+      const thumb=h('div',{class:'pdfThumb'});
+      const info=h('div',{class:'pdfInfo'}, h('b',{text:'PDF karusel'}),
+        h('span',{class:'note',text:[p.pages?slovPages(p.pages):'', fmtMB(p.mediaSize)].filter(Boolean).join(' · ')}),
+        h('a',{href:u,target:'_blank',rel:'noopener',class:'btn small ghost',text:'Otvoriť PDF'}), acts());
+      thumb.append(h('span',{class:'ld note',text:'Načítavam náhľad…'}), info); wrap.append(thumb);
+      pdfCanvas(p.photo,1,150).then(c=>{ thumb.firstChild.replaceWith(c); })
+        .catch(()=>{ thumb.firstChild.textContent='Náhľad PDF sa nepodarilo zobraziť.'; });
+    }
+  }
   else if (p.photo){
     const u=await photoUrl(p.photo);
     if (S.builtFor!==p.id) return;
-    wrap.append(u ? h('img',{src:u,alt:'Fotka k príspevku'}) : h('p',{text:'Fotka sa ešte synchronizuje z OneDrive…'}),
-      h('div',{class:'acts'}, h('button',{class:'btn small',onclick:pickFile,text:'Vymeniť fotku'}), h('button',{class:'btn small danger',onclick:removePhoto,text:'Odstrániť'})));
+    wrap.append(u ? h('img',{src:u,alt:'Fotka k príspevku'}) : h('p',{text:'Fotka sa ešte synchronizuje z OneDrive…'}), acts());
     if (!u) S.photoKey=null;
-  } else wrap.append(h('p',{text:'Pretiahni sem fotku alebo vizuál z Canvy (JPG, PNG, WebP).'}), h('button',{class:'btn small',onclick:pickFile,text:'Nahrať fotku'}));
+  } else wrap.append(h('p',{text:'Pretiahni sem fotku (JPG, PNG, WebP) alebo PDF karusel z Canvy.'}), h('button',{class:'btn small',onclick:pickFile,text:'Nahrať fotku alebo PDF'}));
   wrap.addEventListener('dragover',e=>{e.preventDefault();wrap.classList.add('drag');});
   wrap.addEventListener('dragleave',()=>wrap.classList.remove('drag'));
   wrap.addEventListener('drop',e=>{e.preventDefault();wrap.classList.remove('drag');const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) addPhoto(f);});
@@ -815,9 +1005,35 @@ async function renderPhoto(p){
 }
 function pickFile(){ const f=$('#fileIn'); f.value=''; f.click(); }
 $('#fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) addPhoto(f); });
-function addPhoto(file){
+async function saveMedia(id, blob, ext, extra){
+  const p=S.posts.get(id); if(!p) return;
+  try{
+    const name=id+'-'+Date.now().toString(36)+'.'+ext;
+    const fh=await S.dirs.photos.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(blob); await w.close();
+    const old=p.photo;
+    setLocal(id, Object.assign({photo:name, pages:null, mediaSize:blob.size}, extra||{}), 0); await flush(id);
+    if (old && old!==name){ try{ await S.dirs.photos.removeEntry(old); }catch(e){} S.pdfDocs.delete(old); }
+    S.ui.pdfPage=1;
+    toast(ext==='pdf' ? 'PDF uložené do priečinka.' : 'Fotka uložená do priečinka.');
+  }catch(e){ toast('Súbor sa nepodarilo uložiť do priečinka.'); }
+  S.ui.uploading=false; S.photoKey=null; const q=S.posts.get(id); if(q && S.builtFor===id){ renderPhoto(q); updatePreview(); }
+}
+async function addPhoto(file){
   const id=S.builtFor; const p=S.posts.get(id); if(!p) return;
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)){ toast('Použi fotku vo formáte JPG, PNG alebo WebP.'); return; }
+  const pdf = file.type==='application/pdf' || /\.pdf$/i.test(file.name||'');
+  if (!pdf && !/^image\/(jpeg|png|webp)$/.test(file.type)){ toast('Použi fotku (JPG, PNG, WebP) alebo PDF.'); return; }
+  if (pdf){
+    if (file.size>100*1048576){ toast('PDF je väčšie ako 100 MB, LinkedIn ho neprijme.'); return; }
+    S.ui.uploading=true; S.photoKey=null; renderPhoto(p);
+    let pages=null;
+    try{ const buf=new Uint8Array(await file.arrayBuffer()); const doc=await openPdf(buf); pages=doc.numPages; doc.destroy(); }
+    catch(e){
+      if (!window.pdfjsLib){ toast('Náhľad PDF teraz nie je dostupný, súbor aj tak ukladám.'); }
+      else { S.ui.uploading=false; S.photoKey=null; renderPhoto(p); toast('Toto PDF sa nedá otvoriť. Skús ho z Canvy stiahnuť znova.'); return; }
+    }
+    await saveMedia(id, new Blob([file],{type:'application/pdf'}), 'pdf', {pages});
+    return;
+  }
   S.ui.uploading=true; S.photoKey=null; renderPhoto(p);
   const img=new Image(); const url=URL.createObjectURL(file);
   img.onload=()=>{
@@ -825,25 +1041,16 @@ function addPhoto(file){
     const c=document.createElement('canvas'); c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
     const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
     URL.revokeObjectURL(url);
-    c.toBlob(async blob=>{
-      try{
-        const name=id+'-'+Date.now().toString(36)+'.jpg';
-        const fh=await S.dirs.photos.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(blob); await w.close();
-        const old=p.photo;
-        setLocal(id,{photo:name},0); await flush(id);
-        if (old && old!==name){ try{ await S.dirs.photos.removeEntry(old); }catch(e){} }
-        toast('Fotka uložená do priečinka.');
-      }catch(e){ toast('Fotku sa nepodarilo uložiť do priečinka.'); }
-      S.ui.uploading=false; S.photoKey=null; const q=S.posts.get(id); if(q && S.builtFor===id){ renderPhoto(q); updatePreview(); }
-    },'image/jpeg',0.9);
+    c.toBlob(blob=>saveMedia(id, blob, 'jpg'),'image/jpeg',0.9);
   };
   img.onerror=()=>{ URL.revokeObjectURL(url); S.ui.uploading=false; S.photoKey=null; renderPhoto(p); toast('Fotku sa nepodarilo načítať.'); };
   img.src=url;
 }
 async function removePhoto(){
   const id=S.builtFor; const p=S.posts.get(id); if(!p||!p.photo) return;
-  const old=p.photo; setLocal(id,{photo:null},0); await flush(id);
+  const old=p.photo; setLocal(id,{photo:null, pages:null, mediaSize:null},0); await flush(id);
   try{ await S.dirs.photos.removeEntry(old); }catch(e){}
+  S.pdfDocs.delete(old);
   S.photoKey=null; renderDetail();
 }
 
@@ -860,31 +1067,77 @@ async function updatePreview(){
   if (!text.trim()) tx.append(h('span',{class:'liPh',text:'Text príspevku sa zobrazí tu.'}));
   else if (truncated && !S.ui.expanded) tx.append(short.trimEnd(),'… ',h('button',{class:'more',onclick:()=>{S.ui.expanded=true;updatePreview();},text:'viac'}));
   else { tx.append(text); if(truncated) tx.append(' ',h('button',{class:'more',onclick:()=>{S.ui.expanded=false;updatePreview();},text:'menej'})); }
-  const imgBox = p.photo ? h('div',{class:'liImg'}) : h('div',{class:'liNoImg',text:'Bez fotky'});
+  const pdf=isPdf(p.photo);
+  const imgBox = !p.photo ? h('div',{class:'liNoImg',text:'Bez fotky'}) : pdf ? h('div',{class:'liDoc'}) : h('div',{class:'liImg'});
   prev.replaceChildren(h('div',{class:'li'},
     h('div',{class:'liHead'}, h('div',{class:'liLogo',text:'emst'}), h('div',{}, h('div',{class:'liName',text:'emst s.r.o.'}), h('div',{class:'liSub',text:fmtLong(d)}))),
     tx, imgBox));
   renderChecks(p,text,d);
+  if (pdf) return renderDocPreview(p, imgBox);
   if (p.photo){ const u=await photoUrl(p.photo); if(u) imgBox.append(h('img',{src:u,alt:''})); else imgBox.replaceWith(h('div',{class:'liNoImg',text:'Fotka sa synchronizuje…'})); }
 }
+async function renderDocPreview(p, box){
+  const name=p.photo;
+  let n=p.pages||0;
+  const pg=Math.max(1, S.ui.pdfPage||1);
+  const bar=h('div',{class:'liDocBar'}, h('b',{text:p.title||'Dokument'}), h('span',{text: n ? pg+' / '+n : ''}));
+  const stage=h('div',{class:'liDocPage'}, h('span',{class:'ld',text:'Načítavam PDF…'}));
+  box.replaceChildren(bar, stage);
+  try{
+    const doc=await pdfDoc(name);
+    if (!n || n!==doc.numPages){ n=doc.numPages; if (S.builtFor===p.id && p.pages!==n) setLocal(p.id,{pages:n},2000); }
+    const cur=Math.min(pg, n);
+    const w=Math.max(280, Math.min(720, box.clientWidth||520));
+    const c=await pdfCanvas(name, cur, w);
+    if (!box.isConnected) return;
+    bar.lastChild.textContent=cur+' / '+n;
+    const go=k=>{ S.ui.pdfPage=cur+k; renderDocPreview(S.posts.get(S.builtFor), box); };
+    stage.replaceChildren(c,
+      h('button',{class:'nav prev','aria-label':'Predchádzajúca strana',disabled:cur<=1,onclick:()=>go(-1),text:'‹'}),
+      h('button',{class:'nav next','aria-label':'Ďalšia strana',disabled:cur>=n,onclick:()=>go(1),text:'›'}));
+  }catch(e){
+    if (box.isConnected) stage.replaceChildren(h('span',{class:'ld',text: window.pdfjsLib ? 'PDF sa ešte synchronizuje z OneDrive…' : 'Náhľad PDF sa nepodarilo načítať (skontroluj pripojenie k internetu).'}));
+  }
+}
+function tagsOf(t){ return (t||'').match(/#[\p{L}\p{N}_]+/gu)||[]; }
 function renderChecks(p,text,d){
   const box=$('#d-checks'); if(!box) return;
-  const n=[...text].length;
-  const tags=(text.match(/#[\p{L}\p{N}_]+/gu)||[]).length;
+  const c=curChannel(p), li=hasCh(c,'LinkedIn'), ig=hasCh(c,'Instagram'), fb=hasCh(c,'Facebook');
+  const fbText=($('#f-textFb')||{}).value ?? (p.textFb||'');
+  const n=[...text].length, tl=tagsOf(text), tags=tl.length;
   const tail=text.trim().slice(-400);
   const typeV=($('#f-type')||{}).value||p.type;
   const wd=d? d.getDay() : null;
   const rows=[];
-  rows.push(n>3000 ? ['warn','Text je dlhší, ako LinkedIn dovolí','max. 3 000 znakov',n+' / 3 000'] : ['ok','Dĺžka textu','LinkedIn dovolí najviac 3 000 znakov',n+' / 3 000']);
-  rows.push(tags>=3&&tags<=5 ? ['ok','Hashtagy','',String(tags)] : ['info','Hashtagy', tags<3?'Pridaj aspoň 3, odporúčame 3 až 5':'Odporúčame 3 až 5', String(tags)]);
+  const max = li ? 3000 : 2200, where = li ? 'LinkedIn' : 'Instagram';
+  rows.push(n>max ? ['warn','Text je dlhší, ako '+where+' dovolí','max. '+max.toLocaleString('sk-SK')+' znakov',n+' / '+max] : ['ok','Dĺžka textu',where+' dovolí najviac '+max.toLocaleString('sk-SK')+' znakov',n+' / '+max]);
+  if (li && !ig) rows.push(tags>=3&&tags<=5 ? ['ok','Hashtagy','',String(tags)] : ['info','Hashtagy', tags<3?'Pridaj aspoň 3, odporúčame 3 až 5':'Odporúčame 3 až 5', String(tags)]);
+  else if (ig || li) rows.push(tags>=1&&tags<=5 ? ['ok','Hashtagy','Instagram: najviac 5',String(tags)] : ['warn','Hashtagy', tags<1?'Pridaj #emst a 2 až 4 ďalšie':'Na Instagrame najviac 5', String(tags)]);
+  if ((ig||fb) && tags && tl[0].toLowerCase()!=='#emst') rows.push(['info','#emst nie je prvý hashtag','dohodnuté poradie: #emst, partner, téma','']);
+  if (fb){
+    const ft=tagsOf(fbText).length;
+    if (!fbText.trim()) rows.push(['warn','Chýba text pre Facebook','slovenský text do poľa Text pre Facebook','']);
+    else rows.push(ft<=3 ? ['ok','Hashtagy na Facebooku','najviac 3',String(ft)] : ['warn','Hashtagy na Facebooku','na Facebooku najviac 3',String(ft)]);
+  }
   rows.push(/[?？]/.test(tail) ? ['ok','Otázka na konci','pomáha rozbehnúť diskusiu',''] : ['info','Chýba otázka na konci','pridaj otázku pre čitateľov','']);
-  rows.push(/\*/.test(text) ? ['warn','Text obsahuje hviezdičky *','LinkedIn nezobrazí tučné písmo, hviezdičky ostanú viditeľné',''] : ['ok','Bez hviezdičiek *','formátovanie sa zobrazí správne','']);
-  rows.push(p.photo ? ['ok','Fotka je pridaná','',''] : ['warn','Chýba fotka','','']);
-  const ec=(Array.isArray(p.empComments)?p.empComments:[]).filter(x=>x&&x.trim()).length;
-  rows.push(ec>=3 ? ['ok','Komentáre pre zamestnancov','',String(ec)] : ['info','Komentáre pre zamestnancov','priprav 3 až 4 komentáre',String(ec)]);
+  rows.push(/\*/.test(text) ? ['warn','Text obsahuje hviezdičky *','tučné písmo sa nezobrazí, hviezdičky ostanú viditeľné',''] : ['ok','Bez hviezdičiek *','formátovanie sa zobrazí správne','']);
+  if (!p.photo) rows.push(['warn','Chýba fotka alebo PDF','','']);
+  else if (isPdf(p.photo)){
+    const pg=p.pages||0;
+    rows.push(li && pg>300 ? ['warn','PDF karusel','LinkedIn dovolí najviac 300 strán',slovPages(pg)] : ['ok','PDF karusel', li?'na LinkedIne ako dokument':'', pg?slovPages(pg):'']);
+    if (ig||fb) rows.push(['warn','Instagram a Facebook neprijmú PDF','nahraj strany ako obrázky (PNG z Canvy)','']);
+  }
+  else rows.push(['ok','Fotka je pridaná','','']);
+  if (li){
+    const ec=(Array.isArray(p.empComments)?p.empComments:[]).filter(x=>x&&x.trim()).length;
+    rows.push(ec>=3 ? ['ok','Komentáre pre zamestnancov','',String(ec)] : ['info','Komentáre pre zamestnancov','priprav 3 až 4 komentáre',String(ec)]);
+  }
   if (wd===null) rows.push(['info','Dátum nie je nastavený','','']);
-  else if (typeV==='Referencia') rows.push(wd===5 ? ['ok','Referencia v piatok','podľa plánu',''] : ['info','Referencia nie je v piatok','plán: referencie v piatok',fmtWd(d)]);
-  else rows.push(wd===2 ? ['ok','Utorok','podľa plánu',''] : ['info','Iný deň ako utorok','plán: odborné príspevky v utorok',fmtWd(d)]);
+  else if (li && !ig && !fb){
+    if (typeV==='Referencia') rows.push(wd===5 ? ['ok','Referencia v piatok','podľa plánu',''] : ['info','Referencia nie je v piatok','plán: referencie v piatok',fmtWd(d)]);
+    else rows.push(wd===2 ? ['ok','Utorok','podľa plánu',''] : ['info','Iný deň ako utorok','plán: odborné príspevky v utorok',fmtWd(d)]);
+  }
+  else rows.push([1,3,5].includes(wd) ? ['ok','Deň podľa plánu','Instagram a Facebook: Po, St, Pi o 7:30',fmtWd(d)] : ['info','Iný deň ako Po, St, Pi','plán pre Instagram a Facebook',fmtWd(d)]);
   const sym={ok:'✓',warn:'!',info:'i'};
   box.replaceChildren(...rows.map(([st,t,s,v])=>h('div',{class:'chk '+st}, h('span',{class:'ic',text:sym[st]}), h('span',{}, t, s?h('small',{text:s}):null), h('span',{class:'val',text:v}))));
 }
@@ -911,9 +1164,9 @@ function renderEmp(p, force){
   });
   box.replaceChildren(...rows, list.length<6 ? h('button',{class:'btn small ghost addEmp',onclick:()=>{ const arr=readEmp(); arr.push(''); setEmp(arr,true); },text:'+ Pridať komentár'}) : null);
 }
-async function copyStr(t, el){
-  if (!t || !t.trim()){ toast('Komentár je prázdny.'); return; }
-  try { await navigator.clipboard.writeText(t); toast('Komentár skopírovaný'); }
+async function copyStr(t, el, msg){
+  if (!t || !t.trim()){ toast(msg ? 'Text je prázdny.' : 'Komentár je prázdny.'); return; }
+  try { await navigator.clipboard.writeText(t); toast(msg || 'Komentár skopírovaný'); }
   catch(e){ if(el){ el.focus(); el.select(); } toast('Text je označený, skopíruj ho cez Ctrl+C.'); }
 }
 async function copyText(){
@@ -958,6 +1211,7 @@ async function deletePost(id){
     try{ await S.dirs.comments.removeEntry(id,{recursive:true}); }catch(e){}
     if (p.photo){ try{ await S.dirs.photos.removeEntry(p.photo); }catch(e){} }
     S.posts.delete(id); S.comments.delete(id);
+    if (p.planId) saveTeam(t=>{ t.planRemoved=[...new Set([...(t.planRemoved||[]), p.planId])]; });
     select(null); toast('Príspevok vymazaný');
   }catch(e){ toast('Príspevok sa nepodarilo vymazať.'); }
 }
@@ -994,13 +1248,15 @@ function focusWaiting(){
 
 /* ---------- top bar ---------- */
 $('#newPost').addEventListener('click', async()=>{
-  const p={id:uid(), date:nextTuesday(), type:'Technický', channel:'LinkedIn', title:'Nový príspevok', text:'', notes:'', photo:null,
+  const p={id:uid(), date:nextTuesday(), type:'Technický', channel:'LinkedIn', title:'Nový príspevok', text:'', textFb:'', notes:'', photo:null,
     status:'draft', reviewer:null, createdBy:me()||null, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:me()||null};
   S.posts.set(p.id,p); S.pending.set(p.id,new Set(Object.keys(p)));
   select(p.id); await flush(p.id);
   setTimeout(()=>{ const t=$('#f-title'); if(t){ t.focus(); t.select(); } },50);
 });
 $('#syncNow').addEventListener('click', ()=>syncAll());
+$('#planBtn').addEventListener('click', ()=>{ const f=$('#planIn'); f.value=''; f.click(); });
+$('#planIn').addEventListener('change', e=>{ const f=e.target.files[0]; if (f) loadPlanFromFile(f); });
 document.querySelectorAll('.filters button').forEach(b=>b.addEventListener('click',()=>{
   S.filter=b.dataset.f; document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); renderList();
 }));
