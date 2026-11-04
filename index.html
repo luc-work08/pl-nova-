@@ -257,7 +257,6 @@ a.btn.primary{color:var(--on-accent)}
 .ready .n{color:var(--st-changes);background:var(--st-changes-bg)}
 .late{color:var(--st-changes);font-weight:600}
 .planTag{font-size:12px;color:var(--ink-3)}
-.fbCopy{display:flex;justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -321,8 +320,8 @@ const KIND = {sent:'poslal/a na kontrolu', approve:'schválil/a', changes:'vrát
 const KIND_CLS = {sent:'st-review', approve:'st-ok', changes:'st-changes', published:'st-pub'};
 const TYPES = ['Technický','Referencia','Servis','Udalosť','Slovník','Zákulisie','Kariéra','Ľudia','Firma'];
 const CHANNELS = ['LinkedIn','Instagram','Facebook','Instagram + Facebook','LinkedIn + Instagram','LinkedIn + Instagram + Facebook'];
-const FIELDS = ['date','type','channel','title','text','textFb','notes'];
-const PLAN_FIELDS = ['date','type','channel','title','text','textFb'];
+const FIELDS = ['date','type','channel','title','text','notes'];
+const PLAN_FIELDS = ['date','type','channel','title','text'];
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 const hasCh = (p, c) => String((p&&p.channel)||'').includes(c);
 const isPdf = name => /\.pdf$/i.test(name||'');
@@ -440,7 +439,7 @@ async function seed(){
 
 /* ---------- content plan import ----------
    planovac-data/plan.json = { "version":1, "source":"…", "posts":[ { "planId":"2026-11-09-documentation", "date":"2026-11-09",
-     "type":"Technický", "channel":"Instagram", "title":"…", "text":"…", "textFb":"…", "format":"Carousel 4", "planStatus":"Use template",
+     "type":"Technický", "channel":"Instagram", "title":"…", "text":"…", "format":"Carousel 4", "planStatus":"Use template",
      "status":"draft" } ] }
    Each plan post gets a fixed id (plan-<planId>), so everyone who imports the same file updates the same post.
    A field is updated from the plan only while nobody changed it in the planner. Deleted plan posts are not brought back. */
@@ -459,7 +458,7 @@ async function importPlan(list){
     const meta={planId:it.planId, planFormat:it.format||'', planStatus:it.planStatus||''};
     const cur=S.posts.get(id);
     if (!cur){
-      const p=Object.assign({id, date:'', type:'Technický', channel:'Instagram', title:'', text:'', textFb:'', notes:'', photo:null,
+      const p=Object.assign({id, date:'', type:'Technický', channel:'Instagram', title:'', text:'', notes:'', photo:null,
         status:'draft', reviewer:null, createdBy:null, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:null}, meta, {planSnap:{}});
       for (const f of PLAN_FIELDS) if (typeof it[f]==='string'){ p[f]=it[f]; p.planSnap[f]=it[f]; }
       if (STATUS[it.status]) p.status=it.status;
@@ -711,7 +710,6 @@ function renderList(){
 }
 function readiness(p){
   const r=[['Text', !!(p.text||'').trim()]];
-  if (hasCh(p,'Facebook')) r.push(['FB text', !!(p.textFb||'').trim()]);
   r.push([isPdf(p.photo)?'PDF':'Vizuál', !!p.photo], ['Schválené', p.status==='approved'||p.status==='published']);
   return r;
 }
@@ -757,10 +755,9 @@ function curChannel(p){ const el=$('#f-channel'); return {channel:(el&&el.value)
 function channelUi(p){
   const c=curChannel(p);
   const emp=$('#d-empwrap'); if (emp) emp.hidden=!hasCh(c,'LinkedIn');
-  const fb=$('#d-fbwrap'); if (fb) fb.hidden=!hasCh(c,'Facebook') && !((p&&p.textFb)||'').trim();
   const hint=$('#d-texthint');
   if (hint) hint.textContent = hasCh(c,'LinkedIn') ? (hasCh(c,'Instagram') ? 'pre LinkedIn aj Instagram' : 'LinkedIn, slovensky')
-    : hasCh(c,'Instagram') ? 'Instagram, anglicky, max. 5 hashtagov' : hasCh(c,'Facebook') ? 'pre Facebook použi pole nižšie' : '';
+    : hasCh(c,'Instagram') ? (hasCh(c,'Facebook') ? 'Instagram aj Facebook, anglicky' : 'Instagram, anglicky, max. 5 hashtagov') : hasCh(c,'Facebook') ? 'Facebook, anglicky, max. 3 hashtagy' : '';
   const lab=$('#d-prevlab'); if (lab) lab.textContent = hasCh(c,'LinkedIn') ? 'Náhľad na LinkedIne' : hasCh(c,'Instagram') ? 'Náhľad (text pre Instagram)' : 'Náhľad';
 }
 function field(name, el){
@@ -770,7 +767,7 @@ function field(name, el){
     setLocal(S.builtFor, {[name]:el.value}, ev==='change'?0:800);
     if (['title','date','type','channel'].includes(name)) renderList();
     if (name==='channel') channelUi(S.posts.get(S.builtFor));
-    if (['text','textFb','date','type','channel'].includes(name)) updatePreview();
+    if (['text','date','type','channel'].includes(name)) updatePreview();
   });
   el.addEventListener('blur', ()=>{ if (S.timers.has(S.builtFor)) flush(S.builtFor); });
   return el;
@@ -791,9 +788,6 @@ function buildDetail(p){
           h('label',{class:'f'}, h('span',{class:'lab',text:'Kanál'}), field('channel', sel(CHANNELS)))),
         h('label',{class:'f'}, h('span',{class:'lab',text:'Pracovný názov'}, h('span',{class:'hint',text:'len pre nás, nezverejní sa'})), field('title', h('input',{type:'text',maxlength:'120'}))),
         h('label',{class:'f grow'}, h('span',{class:'lab',text:'Text príspevku'}, h('span',{class:'hint',id:'d-texthint'})), field('text', h('textarea',{spellcheck:'true',lang:'sk'}))),
-        h('div',{class:'f',id:'d-fbwrap'},
-          h('label',{class:'f'}, h('span',{class:'lab',text:'Text pre Facebook'}, h('span',{class:'hint',text:'slovensky, max. 3 hashtagy'})), field('textFb', h('textarea',{spellcheck:'true',lang:'sk',rows:'6'}))),
-          h('div',{class:'fbCopy'}, h('button',{class:'btn small',onclick:()=>copyStr(($('#f-textFb')||{}).value||'', $('#f-textFb'), 'Text pre Facebook skopírovaný'),text:'Kopírovať FB text'}))),
         h('div',{class:'f'}, h('span',{class:'lab',text:'Fotka alebo PDF karusel'}), h('div',{id:'d-photo'}))),
       h('div',{class:'col'},
         h('div',{class:'f'}, h('span',{class:'lab',id:'d-prevlab',text:'Náhľad'}), h('div',{id:'d-preview'})),
@@ -1103,7 +1097,6 @@ function tagsOf(t){ return (t||'').match(/#[\p{L}\p{N}_]+/gu)||[]; }
 function renderChecks(p,text,d){
   const box=$('#d-checks'); if(!box) return;
   const c=curChannel(p), li=hasCh(c,'LinkedIn'), ig=hasCh(c,'Instagram'), fb=hasCh(c,'Facebook');
-  const fbText=($('#f-textFb')||{}).value ?? (p.textFb||'');
   const n=[...text].length, tl=tagsOf(text), tags=tl.length;
   const tail=text.trim().slice(-400);
   const typeV=($('#f-type')||{}).value||p.type;
@@ -1112,13 +1105,10 @@ function renderChecks(p,text,d){
   const max = li ? 3000 : 2200, where = li ? 'LinkedIn' : 'Instagram';
   rows.push(n>max ? ['warn','Text je dlhší, ako '+where+' dovolí','max. '+max.toLocaleString('sk-SK')+' znakov',n+' / '+max] : ['ok','Dĺžka textu',where+' dovolí najviac '+max.toLocaleString('sk-SK')+' znakov',n+' / '+max]);
   if (li && !ig) rows.push(tags>=3&&tags<=5 ? ['ok','Hashtagy','',String(tags)] : ['info','Hashtagy', tags<3?'Pridaj aspoň 3, odporúčame 3 až 5':'Odporúčame 3 až 5', String(tags)]);
-  else if (ig || li) rows.push(tags>=1&&tags<=5 ? ['ok','Hashtagy','Instagram: najviac 5',String(tags)] : ['warn','Hashtagy', tags<1?'Pridaj #emst a 2 až 4 ďalšie':'Na Instagrame najviac 5', String(tags)]);
+  else if (ig) rows.push(tags>=1&&tags<=5 ? ['ok','Hashtagy','Instagram: najviac 5',String(tags)] : ['warn','Hashtagy', tags<1?'Pridaj #emst a 2 až 4 ďalšie':'Na Instagrame najviac 5', String(tags)]);
   if ((ig||fb) && tags && tl[0].toLowerCase()!=='#emst') rows.push(['info','#emst nie je prvý hashtag','dohodnuté poradie: #emst, partner, téma','']);
-  if (fb){
-    const ft=tagsOf(fbText).length;
-    if (!fbText.trim()) rows.push(['warn','Chýba text pre Facebook','slovenský text do poľa Text pre Facebook','']);
-    else rows.push(ft<=3 ? ['ok','Hashtagy na Facebooku','najviac 3',String(ft)] : ['warn','Hashtagy na Facebooku','na Facebooku najviac 3',String(ft)]);
-  }
+  if (fb && !ig && !li) rows.push(tags>=1&&tags<=3 ? ['ok','Hashtagy','Facebook: najviac 3',String(tags)] : ['warn','Hashtagy', tags<1?'Pridaj #emst a 1 až 2 ďalšie':'Na Facebooku najviac 3', String(tags)]);
+  else if (fb && tags>3) rows.push(['info','Facebook: odporúčame najviac 3 hashtagy','ten istý text ide aj na Instagram',String(tags)]);
   rows.push(/[?？]/.test(tail) ? ['ok','Otázka na konci','pomáha rozbehnúť diskusiu',''] : ['info','Chýba otázka na konci','pridaj otázku pre čitateľov','']);
   rows.push(/\*/.test(text) ? ['warn','Text obsahuje hviezdičky *','tučné písmo sa nezobrazí, hviezdičky ostanú viditeľné',''] : ['ok','Bez hviezdičiek *','formátovanie sa zobrazí správne','']);
   if (!p.photo) rows.push(['warn','Chýba fotka alebo PDF','','']);
@@ -1248,7 +1238,7 @@ function focusWaiting(){
 
 /* ---------- top bar ---------- */
 $('#newPost').addEventListener('click', async()=>{
-  const p={id:uid(), date:nextTuesday(), type:'Technický', channel:'LinkedIn', title:'Nový príspevok', text:'', textFb:'', notes:'', photo:null,
+  const p={id:uid(), date:nextTuesday(), type:'Technický', channel:'LinkedIn', title:'Nový príspevok', text:'', notes:'', photo:null,
     status:'draft', reviewer:null, createdBy:me()||null, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:me()||null};
   S.posts.set(p.id,p); S.pending.set(p.id,new Set(Object.keys(p)));
   select(p.id); await flush(p.id);
